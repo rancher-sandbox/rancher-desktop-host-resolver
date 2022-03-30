@@ -262,6 +262,7 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 	}
 }
 
+//TODO: add fallback IPs
 func Start(address string, udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string) (*Server, error) {
 	h, err := newHandler(IPv6, hosts)
 	if err != nil {
