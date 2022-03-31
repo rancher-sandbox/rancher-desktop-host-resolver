@@ -15,3 +15,4 @@ NOTE: If ports are not provided, host resolver will listen on random ports.
 ```bash
 docker build -t host-resolver:latest . && docker run --dns 127.0.0.1 -it host-resolver:latest
 ```
+Note: Run with `--dns` flag, this overrides the `/etc/resolv.conf` in the running container. 
