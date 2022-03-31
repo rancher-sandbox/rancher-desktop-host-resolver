@@ -77,9 +77,9 @@ func newHandler(IPv6 bool, hosts map[string]string) (dns.Handler, error) {
 	}
 	for host, address := range hosts {
 		if ip := net.ParseIP(address); ip != nil {
-			h.ip[host] = ip
+			h.ip[Cname(host)] = ip
 		} else {
-			h.cname[host] = Cname(address)
+			h.cname[Cname(host)] = Cname(address)
 		}
 	}
 	return h, nil
