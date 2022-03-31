@@ -34,11 +34,9 @@ func Start(address string, udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[
 	terminateCh := make(chan os.Signal, 1)
 	signal.Notify(terminateCh, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGINT)
 
-	for {
-		select {
-		case <-terminateCh:
-			logrus.Info("host-resolver stopped.")
-			return nil
-		}
+	for range terminateCh {
+		logrus.Info("host-resolver stopped.")
+		break
 	}
+	return nil
 }
