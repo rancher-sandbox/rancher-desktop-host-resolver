@@ -17,4 +17,5 @@ RUN go mod download
 COPY . ./
 
 RUN go build -o /host-resolver
-CMD /host-resolver run -a 127.0.0.1 -t 54 -u 53 -c "host.rd.internal=111.111.111.111,host2.rd.internal=222.222.222.222" & go test -v ./...
+
+CMD go test -v ./...
