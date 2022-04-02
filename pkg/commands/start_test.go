@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,8 +25,8 @@ import (
 )
 
 var (
-	tcpPort = "54"
-	udpPort = "53"
+	tcpPort = "5353"
+	udpPort = "5353"
 )
 
 func TestStart(t *testing.T) {
@@ -49,41 +48,48 @@ func TestStart(t *testing.T) {
 	require.Errorf(t, err, "host-resolver is not listening on UDP port %s", udpPort)
 
 	output := netstat(t)
-
-	exist := strings.Contains(string(output), fmt.Sprintf("%v/host-resolver", cmd.Process.Pid))
-	require.Exactly(t, exist, true, "Expected the same Pid")
+	require.Contains(t, string(output), fmt.Sprintf("%v/host-resolver", cmd.Process.Pid), "Expected the same Pid")
 }
 
 func TestQueryTCP(t *testing.T) {
-	t.Log("Checking for TCP port on 54")
+	t.Logf("Checking for TCP port on %s", tcpPort)
 	cmd := run(t, "127.0.0.1", tcpPort, udpPort, "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222")
 	defer cmd.Process.Kill()
 
 	addrs, err := dnsLookup(t, tcpPort, "tcp", "host.rd.test")
 	require.NoError(t, err, "Lookup IP failed")
-	require.Exactly(t, len(addrs), 1, "Expect only one address")
-	require.Exactly(t, addrs[0].String(), "111.111.111.111")
+
+	expected := []net.IP{net.IPv4(111, 111, 111, 111)}
+	require.ElementsMatch(t, ipToString(addrs), ipToString(expected))
 }
 
 func TestQueryUDP(t *testing.T) {
-	t.Log("Checking for UDP port on 53")
+	t.Logf("Checking for UDP port on %s", udpPort)
 	cmd := run(t, "127.0.0.1", tcpPort, udpPort, "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222")
 	defer cmd.Process.Kill()
 
 	addrs, err := dnsLookup(t, udpPort, "udp", "host2.rd.test")
 	require.NoError(t, err, "Lookup IP failed")
-	require.Exactly(t, len(addrs), 1, "Expect only one address")
-	require.Exactly(t, addrs[0].String(), "222.222.222.222")
+
+	expected := []net.IP{net.IPv4(222, 222, 222, 222)}
+	require.ElementsMatch(t, ipToString(addrs), ipToString(expected))
 }
 
 func run(t *testing.T, ip, tcpPort, udpPort, hosts string) *exec.Cmd {
-	cmd := exec.Command("/host-resolver", "run", "-a", ip, "-t", tcpPort, "-u", udpPort, "-c", hosts, "&")
+	cmd := exec.Command("/app/host-resolver", "run", "-a", ip, "-t", tcpPort, "-u", udpPort, "-c", hosts)
 	err := cmd.Start()
 	require.NoError(t, err, "host-resolver run failed")
 	// little bit of pause is needed for the process to start
 	// since cmd.Run() doesn't work in this situation :{
 	time.Sleep(time.Second * 1)
 	return cmd
+}
+
+func ipToString(ips []net.IP) (out []string) {
+	for _, ip := range ips {
+		out = append(out, ip.String())
+	}
+	return out
 }
 
 func dnsLookup(t *testing.T, resolverPort, resolverProtocol, domain string) ([]net.IP, error) {

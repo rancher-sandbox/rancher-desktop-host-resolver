@@ -1,5 +1,4 @@
-FROM golang:1.17-alpine
-# TODO: Investigate why Alpine 1.18 is broken :|
+FROM golang:1.18.0-stretch
 
 WORKDIR /app
 
@@ -7,15 +6,16 @@ COPY go.mod .
 COPY go.sum .
 
 ENV GO111MODULE=on
-# need CGO disabled since container has no cgo installed
-ENV CGO_ENABLED=0
+ENV CGO_ENABLED=1
 #see which DNS resolver is being used
 #ENV GODEBUG=netdns=go+2
 
+RUN apt update
+RUN apt install net-tools
 RUN go mod download
 
 COPY . ./
 
-RUN go build -o /host-resolver
+RUN go build -o /app/host-resolver
 
 CMD go test -v ./...
