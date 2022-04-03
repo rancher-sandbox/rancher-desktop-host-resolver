@@ -22,9 +22,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func Start(address string, udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string) error {
-	//TODO: seperate the handler from start
-	srv, err := dns.Start(address, udpLocalPort, tcpLocalPort, IPv6, hosts)
+func Start(address string, udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string, upstreamServers []string) error {
+	options := dns.ServerOptions{
+		Address:         address,
+		UDPPort:         udpLocalPort,
+		TCPPort:         tcpLocalPort,
+		IPv6:            IPv6,
+		StaticHosts:     hosts,
+		UpstreamServers: upstreamServers,
+	}
+	srv, err := dns.Start(options)
 	if err != nil {
 		return err
 	}
