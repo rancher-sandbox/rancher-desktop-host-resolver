@@ -31,7 +31,7 @@ var (
 		Use:   "run",
 		Short: "Runs the host-resolver with a given arguments",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return commands.Start(addr, tcpPort, udpPort, ipv6, hosts)
+			return commands.Start(addr, udpPort,tcpPort, ipv6, hosts)
 		},
 	}
 )
