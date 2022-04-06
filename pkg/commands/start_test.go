@@ -27,42 +27,45 @@ import (
 )
 
 func TestStart(t *testing.T) {
-	port := randomPort()
-	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", port, "-u", port})
+	tPort := randomPort()
+	uPort := randomPort()
+
+	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tPort, "-u", uPort})
 	defer cmd.Process.Kill()
 
-	t.Logf("Checking for TCP port is running on %v", port)
-	tcpListener, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
+	t.Logf("Checking for TCP port is running on %v", tPort)
+	tcpListener, err := net.Listen("tcp", fmt.Sprintf(":%s", tPort))
 	if tcpListener != nil {
 		defer tcpListener.Close()
 	}
-	require.Errorf(t, err, "host-resolver is not listening on TCP port %s", port)
+	require.Errorf(t, err, "host-resolver is not listening on TCP port %s", tPort)
 
-	t.Logf("Checking for UDP port is running on %v", port)
-	udpListener, err := net.Listen("udp", fmt.Sprintf(":%s", port))
+	t.Logf("Checking for UDP port is running on %v", uPort)
+	udpListener, err := net.Listen("udp", fmt.Sprintf(":%s", uPort))
 	if udpListener != nil {
 		defer udpListener.Close()
 	}
-	require.Errorf(t, err, "host-resolver is not listening on UDP port %s", port)
+	require.Errorf(t, err, "host-resolver is not listening on UDP port %s", uPort)
 
 	output := netstat(t)
 	require.Contains(t, string(output), fmt.Sprintf("%v/host-resolver", cmd.Process.Pid), "Expected the same Pid")
 }
 
 func TestQueryStaticHosts(t *testing.T) {
-	port := randomPort()
-	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", port, "-u", port, "-c", "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222"})
+	tPort := randomPort()
+	uPort := randomPort()
+	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tPort, "-u", uPort, "-c", "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222"})
 	defer cmd.Process.Kill()
 
-	t.Logf("Checking for TCP port on %s", port)
-	addrs, err := dnsLookup(t, port, "tcp", "host.rd.test")
+	t.Logf("Checking for TCP port on %s", tPort)
+	addrs, err := dnsLookup(t, tPort, "tcp", "host.rd.test")
 	require.NoError(t, err, "Lookup IP failed")
 
 	expected := []net.IP{net.IPv4(111, 111, 111, 111)}
 	require.ElementsMatch(t, ipToString(addrs), ipToString(expected))
 
-	t.Logf("Checking for UDP port on %s", port)
-	addrs, err = dnsLookup(t, port, "udp", "host2.rd.test")
+	t.Logf("Checking for UDP port on %s", uPort)
+	addrs, err = dnsLookup(t, uPort, "udp", "host2.rd.test")
 	require.NoError(t, err, "Lookup IP failed")
 
 	expected = []net.IP{net.IPv4(222, 222, 222, 222)}
@@ -70,26 +73,25 @@ func TestQueryStaticHosts(t *testing.T) {
 }
 
 func TestQueryUpstreamServer(t *testing.T) {
-	port := randomPort()
-	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", port, "-u", port, "-s", "[8.8.8.8]"})
+	tPort := randomPort()
+	uPort := randomPort()
+	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tPort, "-u", uPort, "-s", "[8.8.8.8]"})
 	defer cmd.Process.Kill()
 
-	t.Logf("Resolving via upstream server on [TCP] --> %s", port)
-	addrs, err := dnsLookup(t, port, "tcp", "google.ca")
+	t.Logf("Resolving via upstream server on [TCP] --> %s", tPort)
+	addrs, err := dnsLookup(t, tPort, "tcp", "google.ca")
 	require.NoError(t, err, "Lookup IP failed")
-	require.True(t, len(addrs) > 0, true, "Expect at least an address")
+	require.NotEmpty(t, addrs, "Expect at least an address")
 
-	t.Logf("Resolving via upstream server on [UDP] --> %s", port)
-	addrs, err = dnsLookup(t, port, "udp", "google.ca")
+	t.Logf("Resolving via upstream server on [UDP] --> %s", uPort)
+	addrs, err = dnsLookup(t, uPort, "udp", "google.ca")
 	require.NoError(t, err, "Lookup IP failed")
-	require.True(t, len(addrs) > 0, true, "Expect at least an address")
+	require.NotEmpty(t, addrs, "Expect at least an address")
 }
 
 func runHostResovler(t *testing.T, args []string) *exec.Cmd {
 	// add run command to the tip
 	args = append([]string{"run"}, args...)
-	// add background process to the tail
-	args = append(args, "&")
 
 	cmd := exec.Command("/app/host-resolver", args...)
 	cmd.Stdout = os.Stdout
@@ -124,7 +126,7 @@ func dnsLookup(t *testing.T, resolverPort, resolverProtocol, domain string) ([]n
 }
 
 func randomPort() string {
-	return fmt.Sprint(rand.Intn(65535-54) + 54)
+	return fmt.Sprint(rand.Intn(32767-1024) + 1024)
 }
 
 func netstat(t *testing.T) []byte {

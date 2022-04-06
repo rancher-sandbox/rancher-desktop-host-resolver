@@ -77,12 +77,14 @@ func newHandler(IPv6 bool, hosts map[string]string, upstreamServers []string) (d
 				return nil, err
 			}
 		}
+	} else {
+		cc, err = newStaticClientConfig(upstreamServers)
+		if err != nil {
+			return nil, err
+		}
+
 	}
 
-	cc, err = newStaticClientConfig(upstreamServers)
-	if err != nil {
-		return nil, err
-	}
 	clients := []*dns.Client{
 		{}, // UDP
 		{Net: "tcp"},

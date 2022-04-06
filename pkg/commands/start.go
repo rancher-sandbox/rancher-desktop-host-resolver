@@ -23,15 +23,15 @@ import (
 )
 
 func Start(address string, udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string, upstreamServers []string) error {
-	options := dns.ServerOptions{
+	srv, err := dns.Start(dns.ServerOptions{
 		Address:         address,
 		UDPPort:         udpLocalPort,
 		TCPPort:         tcpLocalPort,
 		IPv6:            IPv6,
 		StaticHosts:     hosts,
 		UpstreamServers: upstreamServers,
-	}
-	srv, err := dns.Start(options)
+	},
+)
 	if err != nil {
 		return err
 	}
