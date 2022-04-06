@@ -126,7 +126,7 @@ func dnsLookup(t *testing.T, resolverPort, resolverProtocol, domain string) ([]n
 }
 
 func randomPort() string {
-	return fmt.Sprint(rand.Intn(32767-1024) + 1024)
+	return fmt.Sprint(rand.Intn(32767) + 32768)
 }
 
 func netstat(t *testing.T) []byte {
