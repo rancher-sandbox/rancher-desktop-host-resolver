@@ -24,6 +24,7 @@ type ServerOptions struct {
 	IPv6            bool
 	StaticHosts     map[string]string
 	UpstreamServers []string
+	Listener        net.Listener
 }
 
 type Handler struct {
@@ -82,7 +83,6 @@ func newHandler(IPv6 bool, hosts map[string]string, upstreamServers []string) (d
 		if err != nil {
 			return nil, err
 		}
-
 	}
 
 	clients := []*dns.Client{
@@ -281,6 +281,21 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 	default:
 		h.handleDefault(w, req)
 	}
+}
+func StartWithListener(opts ServerOptions) (*Server, error) {
+	h, err := newHandler(opts.IPv6, opts.StaticHosts, opts.UpstreamServers)
+	if err != nil {
+		return nil, err
+	}
+	server := &Server{}
+	s := &dns.Server{Net: "tcp", Listener: opts.Listener, Handler: h}
+	server.tcp = s
+	go func() {
+		if e := s.ActivateAndServe(); e != nil {
+			panic(e)
+		}
+	}()
+	return server, nil
 }
 
 func Start(opts ServerOptions) (*Server, error) {

@@ -29,8 +29,12 @@ var (
 	runCmd = &cobra.Command{
 		Use:   "run",
 		Short: "Runs the host-resolver with a given arguments",
+		Long: `Runs the host-resolver in a server mode, this mode allows the host-resolver to
+attached to a defined IP and ports with given options. This mode is ideal for testing the contract
+with the underlying DNS server. Use this more for testing, debugging and benchmarks.
+		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return commands.Start(addr, udpPort, tcpPort, ipv6, hosts, upstreamServers)
+			return commands.StartStandAloneServer(addr, udpPort, tcpPort, ipv6, hosts, upstreamServers)
 		},
 	}
 )

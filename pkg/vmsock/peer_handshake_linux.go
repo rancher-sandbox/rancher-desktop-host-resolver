@@ -11,29 +11,27 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package cmd
+
+package vmsock
 
 import (
-	"os"
-
-	"github.com/spf13/cobra"
+	"github.com/linuxkit/virtsock/pkg/vsock"
+	log "github.com/sirupsen/logrus"
 )
 
-var (
-	rootCmd = &cobra.Command{
-		Use:   "host-resolver",
-		Short: "Rancher Desktop DNS resolver",
-		Long: `This stub resolver handles the DNS resolution on the host machine,
-it allows for more robust name resolution in split VPN tunneling scenarios.
-It can run on Windows, Darwin and Linux.`,
-		Args: cobra.MinimumNArgs(1),
-		Run:  func(cmd *cobra.Command, args []string) {},
-	}
-)
-
-func Execute() {
-	err := rootCmd.Execute()
+func PeerHandshake() {
+	l, err := vsock.Listen(vsock.CIDAny, PeerHandshakePort)
 	if err != nil {
-		os.Exit(1)
+		log.Fatalf("PeerHandshake listen for incoming vsock: %v", err)
+	}
+	defer l.Close()
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Errorf("PeerHandshake accepting incoming socket connection: %v", err)
+		}
+		conn.Write([]byte(SeedPhrase))
+		conn.Close()
 	}
 }

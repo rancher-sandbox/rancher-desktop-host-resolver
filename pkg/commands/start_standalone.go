@@ -11,18 +11,38 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package commands
 
 import (
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
-func Start(address string, udpLocalPort, tcpLocalPort int, ipv6 bool, hosts map[string]string, upstreamServers []string) error {
+func StartStandAloneServer(address string,
+	udpLocalPort,
+	tcpLocalPort int,
+	ipv6 bool,
+	hosts map[string]string,
+	upstreamServers []string) error {
+	var err error
+	if udpLocalPort == 0 {
+		udpLocalPort, err = randomUDPPort()
+		if err != nil {
+			return err
+		}
+	}
+	if tcpLocalPort == 0 {
+		tcpLocalPort, err = randomTCPPort()
+		if err != nil {
+			return err
+		}
+	}
 	srv, err := dns.Start(dns.ServerOptions{
 		Address:         address,
 		UDPPort:         udpLocalPort,
@@ -30,20 +50,51 @@ func Start(address string, udpLocalPort, tcpLocalPort int, ipv6 bool, hosts map[
 		IPv6:            ipv6,
 		StaticHosts:     hosts,
 		UpstreamServers: upstreamServers,
-	},
-	)
+	})
 	if err != nil {
 		return err
 	}
-	logrus.Infof("Started srv %+v", srv)
+	log.Infof("Started Stand Alone srv %+v", srv)
 	defer srv.Shutdown()
 
+	run()
+	return nil
+}
+
+func randomTCPPort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+func randomUDPPort() (int, error) {
+	addr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.LocalAddr().(*net.UDPAddr).Port, nil
+}
+
+func run() {
 	terminateCh := make(chan os.Signal, 1)
 	signal.Notify(terminateCh, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGINT)
 
 	for range terminateCh {
-		logrus.Info("host-resolver stopped.")
+		log.Info("host-resolver stopped.")
 		break
 	}
-	return nil
 }

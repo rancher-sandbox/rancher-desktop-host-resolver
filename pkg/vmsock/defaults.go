@@ -11,29 +11,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package cmd
 
-import (
-	"os"
+package vmsock
 
-	"github.com/spf13/cobra"
+const (
+	HostListenPort    = uint32(5995)
+	PeerHandshakePort = uint32(7878)
+	SeedPhrase        = "github.com/rancher-sandbox/rancher-desktop-host-resolver"
 )
-
-var (
-	rootCmd = &cobra.Command{
-		Use:   "host-resolver",
-		Short: "Rancher Desktop DNS resolver",
-		Long: `This stub resolver handles the DNS resolution on the host machine,
-it allows for more robust name resolution in split VPN tunneling scenarios.
-It can run on Windows, Darwin and Linux.`,
-		Args: cobra.MinimumNArgs(1),
-		Run:  func(cmd *cobra.Command, args []string) {},
-	}
-)
-
-func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
-		os.Exit(1)
-	}
-}
