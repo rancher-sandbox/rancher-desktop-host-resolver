@@ -15,6 +15,17 @@ import (
 // https://github.com/lima-vm/lima/issues/380
 const truncateSize = 512
 
+var defaultFallbackIPs = []string{"8.8.8.8", "1.1.1.1"}
+
+type ServerOptions struct {
+	Address         string
+	TCPPort         int
+	UDPPort         int
+	IPv6            bool
+	StaticHosts     map[string]string
+	UpstreamServers []string
+}
+
 type Handler struct {
 	clientConfig *dns.ClientConfig
 	clients      []*dns.Client
@@ -45,25 +56,35 @@ func (s *Server) Shutdown() {
 	}
 }
 
-func newStaticClientConfig(ips []net.IP) (*dns.ClientConfig, error) {
+func newStaticClientConfig(ips []string) (*dns.ClientConfig, error) {
 	s := ``
 	for _, ip := range ips {
-		s += fmt.Sprintf("nameserver %s\n", ip.String())
+		s += fmt.Sprintf("nameserver %s\n", ip)
 	}
 	r := strings.NewReader(s)
 	return dns.ClientConfigFromReader(r)
 }
 
-func newHandler(IPv6 bool, hosts map[string]string) (dns.Handler, error) {
-	cc, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-	if err != nil {
-		fallbackIPs := []net.IP{net.ParseIP("8.8.8.8"), net.ParseIP("1.1.1.1")}
-		logrus.WithError(err).Warnf("failed to detect system DNS, falling back to %v", fallbackIPs)
-		cc, err = newStaticClientConfig(fallbackIPs)
+func newHandler(IPv6 bool, hosts map[string]string, upstreamServers []string) (dns.Handler, error) {
+	var cc *dns.ClientConfig
+	var err error
+	if len(upstreamServers) == 0 {
+		cc, err = dns.ClientConfigFromFile("/etc/resolv.conf")
+		if err != nil {
+			logrus.WithError(err).Warnf("failed to detect system DNS, falling back to %v", defaultFallbackIPs)
+			cc, err = newStaticClientConfig(defaultFallbackIPs)
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		cc, err = newStaticClientConfig(upstreamServers)
 		if err != nil {
 			return nil, err
 		}
+
 	}
+
 	clients := []*dns.Client{
 		{}, // UDP
 		{Net: "tcp"},
@@ -262,15 +283,14 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 	}
 }
 
-//TODO: add fallback IPs
-func Start(address string, udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string) (*Server, error) {
-	h, err := newHandler(IPv6, hosts)
+func Start(opts ServerOptions) (*Server, error) {
+	h, err := newHandler(opts.IPv6, opts.StaticHosts, opts.UpstreamServers)
 	if err != nil {
 		return nil, err
 	}
 	server := &Server{}
-	if udpLocalPort > 0 {
-		addr := fmt.Sprintf("%s:%d", address, udpLocalPort)
+	if opts.UDPPort > 0 {
+		addr := fmt.Sprintf("%s:%d", opts.Address, opts.UDPPort)
 		s := &dns.Server{Net: "udp", Addr: addr, Handler: h}
 		server.udp = s
 		go func() {
@@ -279,8 +299,8 @@ func Start(address string, udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[
 			}
 		}()
 	}
-	if tcpLocalPort > 0 {
-		addr := fmt.Sprintf("%s:%d", address, tcpLocalPort)
+	if opts.TCPPort > 0 {
+		addr := fmt.Sprintf("%s:%d", opts.Address, opts.TCPPort)
 		s := &dns.Server{Net: "tcp", Addr: addr, Handler: h}
 		server.tcp = s
 		go func() {

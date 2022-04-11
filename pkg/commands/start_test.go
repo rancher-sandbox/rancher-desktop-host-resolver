@@ -16,7 +16,9 @@ package commands
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
+	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -24,59 +26,76 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	tcpPort = "5353"
-	udpPort = "5353"
-)
-
 func TestStart(t *testing.T) {
-	cmd := run(t, "127.0.0.1", tcpPort, udpPort, "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222")
+	tPort := randomPort()
+	uPort := randomPort()
+
+	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tPort, "-u", uPort})
 	defer cmd.Process.Kill()
 
-	t.Logf("Checking for TCP port is running on %v", tcpPort)
-	tcpListener, err := net.Listen("tcp", fmt.Sprintf(":%s", tcpPort))
+	t.Logf("Checking for TCP port is running on %v", tPort)
+	tcpListener, err := net.Listen("tcp", fmt.Sprintf(":%s", tPort))
 	if tcpListener != nil {
 		defer tcpListener.Close()
 	}
-	require.Errorf(t, err, "host-resolver is not listening on TCP port %s", tcpPort)
+	require.Errorf(t, err, "host-resolver is not listening on TCP port %s", tPort)
 
-	t.Logf("Checking for UDP port is running on %v", udpPort)
-	udpListener, err := net.Listen("udp", fmt.Sprintf(":%s", udpPort))
+	t.Logf("Checking for UDP port is running on %v", uPort)
+	udpListener, err := net.Listen("udp", fmt.Sprintf(":%s", uPort))
 	if udpListener != nil {
 		defer udpListener.Close()
 	}
-	require.Errorf(t, err, "host-resolver is not listening on UDP port %s", udpPort)
+	require.Errorf(t, err, "host-resolver is not listening on UDP port %s", uPort)
 
 	output := netstat(t)
 	require.Contains(t, string(output), fmt.Sprintf("%v/host-resolver", cmd.Process.Pid), "Expected the same Pid")
 }
 
-func TestQueryTCP(t *testing.T) {
-	t.Logf("Checking for TCP port on %s", tcpPort)
-	cmd := run(t, "127.0.0.1", tcpPort, udpPort, "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222")
+func TestQueryStaticHosts(t *testing.T) {
+	tPort := randomPort()
+	uPort := randomPort()
+	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tPort, "-u", uPort, "-c", "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222"})
 	defer cmd.Process.Kill()
 
-	addrs, err := dnsLookup(t, tcpPort, "tcp", "host.rd.test")
+	t.Logf("Checking for TCP port on %s", tPort)
+	addrs, err := dnsLookup(t, tPort, "tcp", "host.rd.test")
 	require.NoError(t, err, "Lookup IP failed")
 
 	expected := []net.IP{net.IPv4(111, 111, 111, 111)}
 	require.ElementsMatch(t, ipToString(addrs), ipToString(expected))
-}
 
-func TestQueryUDP(t *testing.T) {
-	t.Logf("Checking for UDP port on %s", udpPort)
-	cmd := run(t, "127.0.0.1", tcpPort, udpPort, "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222")
-	defer cmd.Process.Kill()
-
-	addrs, err := dnsLookup(t, udpPort, "udp", "host2.rd.test")
+	t.Logf("Checking for UDP port on %s", uPort)
+	addrs, err = dnsLookup(t, uPort, "udp", "host2.rd.test")
 	require.NoError(t, err, "Lookup IP failed")
 
-	expected := []net.IP{net.IPv4(222, 222, 222, 222)}
+	expected = []net.IP{net.IPv4(222, 222, 222, 222)}
 	require.ElementsMatch(t, ipToString(addrs), ipToString(expected))
 }
 
-func run(t *testing.T, ip, tcpPort, udpPort, hosts string) *exec.Cmd {
-	cmd := exec.Command("/app/host-resolver", "run", "-a", ip, "-t", tcpPort, "-u", udpPort, "-c", hosts)
+func TestQueryUpstreamServer(t *testing.T) {
+	tPort := randomPort()
+	uPort := randomPort()
+	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tPort, "-u", uPort, "-s", "[8.8.8.8]"})
+	defer cmd.Process.Kill()
+
+	t.Logf("Resolving via upstream server on [TCP] --> %s", tPort)
+	addrs, err := dnsLookup(t, tPort, "tcp", "google.ca")
+	require.NoError(t, err, "Lookup IP failed")
+	require.NotEmpty(t, addrs, "Expect at least an address")
+
+	t.Logf("Resolving via upstream server on [UDP] --> %s", uPort)
+	addrs, err = dnsLookup(t, uPort, "udp", "google.ca")
+	require.NoError(t, err, "Lookup IP failed")
+	require.NotEmpty(t, addrs, "Expect at least an address")
+}
+
+func runHostResovler(t *testing.T, args []string) *exec.Cmd {
+	// add run command to the tip
+	args = append([]string{"run"}, args...)
+
+	cmd := exec.Command("/app/host-resolver", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	err := cmd.Start()
 	require.NoError(t, err, "host-resolver run failed")
 	// little bit of pause is needed for the process to start
@@ -104,6 +123,10 @@ func dnsLookup(t *testing.T, resolverPort, resolverProtocol, domain string) ([]n
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return resolver.LookupIP(ctx, "ip4", domain)
+}
+
+func randomPort() string {
+	return fmt.Sprint(rand.Intn(32767) + 32768)
 }
 
 func netstat(t *testing.T) []byte {

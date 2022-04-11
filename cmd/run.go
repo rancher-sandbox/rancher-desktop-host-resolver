@@ -24,14 +24,13 @@ var (
 	tcpPort, udpPort int
 	ipv6             bool
 	hosts            map[string]string
-	// TODO: add fallback IPs
-	//fallBackIPs      []string
+	upstreamServers  []string
 
 	runCmd = &cobra.Command{
 		Use:   "run",
 		Short: "Runs the host-resolver with a given arguments",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return commands.Start(addr, udpPort,tcpPort, ipv6, hosts)
+			return commands.Start(addr, udpPort, tcpPort, ipv6, hosts, upstreamServers)
 		},
 	}
 )
@@ -42,5 +41,6 @@ func init() {
 	runCmd.Flags().IntVarP(&udpPort, "udp-port", "u", 0, "UDP port to listen on, if non provided random port will be chosen.")
 	runCmd.Flags().BoolVarP(&ipv6, "ipv6", "6", false, "Enable IPv6 address family.")
 	runCmd.Flags().StringToStringVarP(&hosts, "built-in-hosts", "c", map[string]string{}, "List of built-in Cnames to IPv4, IPv6 or IPv4-mapped IPv6 in host.rd.internal=111.111.111.111,com.backend.process=2001:db8::68 format.")
+	runCmd.Flags().StringArrayVarP(&upstreamServers, "upstream-servers", "s", []string{}, "List of IP addresses for upstream DNS servers.")
 	rootCmd.AddCommand(runCmd)
 }
