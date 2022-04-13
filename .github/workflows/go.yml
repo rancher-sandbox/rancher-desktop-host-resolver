@@ -24,9 +24,12 @@ jobs:
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v3.1.0
 
-    - name: DNS Test
-      #run: go test -v ./...
-      # it is easier for now to run these set of tests in docker
+    - name: Build Docker Image
+      run: docker build -t host-resolver:latest .
+
+      # these set of tests need to run in docker since github action
+      # ubuntu-latest VMs already have docker installed and ready to go
       # otherwise we would need to manipulate the /etc/resolv.conf
-      # in the github actions container
-      run: docker build -t host-resolver:latest . && docker run --dns 127.0.0.1 -it host-resolver:latest
+      # in the github actions machine which is not recommended
+    - name: Run DNS tess inside container
+      run: docker run --dns 127.0.0.1 host-resolver:latest
