@@ -31,5 +31,5 @@ jobs:
       # ubuntu-latest VMs already have docker installed and ready to go
       # otherwise we would need to manipulate the /etc/resolv.conf
       # in the github actions machine which is not recommended
-    - name: Run DNS tess inside container
+    - name: Run DNS test inside container
       run: docker run --dns 127.0.0.1 host-resolver:latest
