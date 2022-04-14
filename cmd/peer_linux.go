@@ -21,6 +21,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const defaultPort = 53
+
 // peerCmd represents the peer command
 var (
 	peerCmd = &cobra.Command{
@@ -63,7 +65,7 @@ AF_VSOCK connections from inside of the WSL VM. It is also a stub DNS forwarder 
 
 func init() {
 	peerCmd.Flags().StringP("listen-address", "a", "127.0.0.1", "Address to listen on, \"127.0.0.1:dnsPort\" if empty.")
-	peerCmd.Flags().IntP("tcp-port", "t", 53, "TCP port to listen on, default is 53.")
-	peerCmd.Flags().IntP("udp-port", "u", 53, "UDP port to listen on, default is 53.")
+	peerCmd.Flags().IntP("tcp-port", "t", defaultPort, "TCP port to listen on, default is 53.")
+	peerCmd.Flags().IntP("udp-port", "u", defaultPort, "UDP port to listen on, default is 53.")
 	rootCmd.AddCommand(peerCmd)
 }

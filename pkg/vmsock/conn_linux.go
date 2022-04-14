@@ -24,11 +24,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const UDPMaxBufer = 1024
+
 func ListenTCP(addr string, port int) error {
 	l, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.ParseIP(addr), Port: port})
 	if err != nil {
 		return fmt.Errorf("ListenTCP: %w", err)
-
 	}
 	defer l.Close()
 
@@ -63,7 +64,7 @@ func ListenUDP(addr string, port int) error {
 	}
 	defer l.Close()
 	for {
-		buf := make([]byte, 1024)
+		buf := make([]byte, UDPMaxBufer)
 		n, addr, err := l.ReadFromUDP(buf)
 		if err != nil {
 			log.Errorf("ListenUDP, read error: %v", err)
@@ -83,24 +84,24 @@ func handleUDP(uConn *net.UDPConn, addr *net.UDPAddr, b []byte) {
 
 	_, err = conn.Write(b)
 	if err != nil {
-		log.Error("handleUDP write to vsock host: %v", err)
+		log.Errorf("handleUDP write to vsock host: %v", err)
 		return
 	}
-	data := make([]byte, 1024)
+	data := make([]byte, UDPMaxBufer)
 	_, err = conn.Read(data)
 	if err != nil {
-		log.Error("handleUDP read from vsock host: %v", err)
+		log.Errorf("handleUDP read from vsock host: %v", err)
 		return
 	}
-	// remove the tcp length from the begining since that is the place for msg id ;b
+	// remove the tcp length from the beginning since that is the place for msg id ;b
 	_, err = uConn.WriteToUDP(data[2:], addr)
 	if err != nil {
-		log.Error("handleUDP write to original requester: %v", err)
+		log.Errorf("handleUDP write to original requester: %v", err)
 	}
 }
 
 func appendHeaderLen(m []byte, n int) []byte {
-	// This is to accomodate for the header length that exists in TCP buffer for DNS payload
+	// This is to accommodate for the header length that exists in TCP buffer for DNS payload
 	// DNS server does a binary read on the first 8 byte(uint16) of the buffer for this length
 	// the UDP buffer does not include this header length, therefore it would need to be added
 	msg := make([]byte, 2+n)

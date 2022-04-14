@@ -51,7 +51,8 @@ that runs inside a VM.
 
 func init() {
 	hostCmd.Flags().BoolP("ipv6", "6", false, "Enable IPv6 address family.")
-	hostCmd.Flags().StringToStringP("built-in-hosts", "c", map[string]string{}, "List of built-in Cnames to IPv4, IPv6 or IPv4-mapped IPv6 in host.rd.internal=111.111.111.111,com.backend.process=2001:db8::68 format.")
+	hostCmd.Flags().StringToStringP("built-in-hosts", "c", map[string]string{},
+		"List of built-in Cnames to IPv4, IPv6 or IPv4-mapped IPv6 in host.rd.internal=111.111.111.111,com.backend.process=2001:db8::68 format.")
 	hostCmd.Flags().StringArrayP("upstream-servers", "s", []string{}, "List of IP addresses for upstream DNS servers.")
 	rootCmd.AddCommand(hostCmd)
 }

@@ -31,7 +31,11 @@ func PeerHandshake() {
 		if err != nil {
 			log.Errorf("PeerHandshake accepting incoming socket connection: %v", err)
 		}
-		conn.Write([]byte(SeedPhrase))
+		_, err = conn.Write([]byte(SeedPhrase))
+		if err != nil {
+			log.Errorf("PeerHandshake writing seed phrase: %v", err)
+		}
+
 		conn.Close()
 	}
 }

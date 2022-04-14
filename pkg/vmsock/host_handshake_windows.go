@@ -24,8 +24,13 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
+const timeout = 10
+
 func vmGuid() (hvsock.GUID, error) {
-	key, err := registry.OpenKey(registry.LOCAL_MACHINE, `SOFTWARE\Microsoft\Windows NT\CurrentVersion\HostComputeService\VolatileStore\ComputeSystem`, registry.ENUMERATE_SUB_KEYS)
+	key, err := registry.OpenKey(
+		registry.LOCAL_MACHINE,
+		`SOFTWARE\Microsoft\Windows NT\CurrentVersion\HostComputeService\VolatileStore\ComputeSystem`,
+		registry.ENUMERATE_SUB_KEYS)
 	if err != nil {
 		return hvsock.GUIDZero, fmt.Errorf("could not retrieve registry key, is WSL VM running? %w", err)
 	}
@@ -33,7 +38,7 @@ func vmGuid() (hvsock.GUID, error) {
 
 	names, err := key.ReadSubKeyNames(0)
 	if err != nil {
-		return hvsock.GUIDZero, fmt.Errorf("machine IDs can not be read in registry: %w", err)
+		return hvsock.GUIDZero, fmt.Errorf("machine IDs can not be read in registry: %v", err)
 	}
 
 	found := make(chan hvsock.GUID)
@@ -43,7 +48,7 @@ func vmGuid() (hvsock.GUID, error) {
 	for _, name := range names {
 		vmGuid, err := hvsock.GUIDFromString(name)
 		if err != nil {
-			log.Errorf("invalid VM name: [%s], err: %w\n", name, err)
+			log.Errorf("invalid VM name: [%s], err: %v\n", name, err)
 			continue
 		}
 
@@ -65,7 +70,7 @@ func hostHandshake(vmGuid hvsock.GUID, found chan hvsock.GUID, quit chan bool) {
 
 	attempInterval := time.NewTicker(time.Second * 1)
 	// maybe this needs to be longer in a real deployment
-	bailOut := time.After(time.Second * 10)
+	bailOut := time.After(time.Second * timeout)
 	attempt := 1
 	for {
 		select {
@@ -79,7 +84,6 @@ func hostHandshake(vmGuid hvsock.GUID, found chan hvsock.GUID, quit chan bool) {
 				attempt++
 				continue
 			}
-			defer conn.Close()
 			seed := make([]byte, len(SeedPhrase))
 			_, err = conn.Read(seed)
 			if err != nil {
@@ -89,6 +93,9 @@ func hostHandshake(vmGuid hvsock.GUID, found chan hvsock.GUID, quit chan bool) {
 			if string(seed) == SeedPhrase {
 				log.Infof("successfully estabilished a handshake with a peer: %s", vmGuid.String())
 				found <- vmGuid
+			}
+			if err := conn.Close(); err != nil {
+				log.Errorf("hosthandshake closing connection: %v", err)
 			}
 		case <-bailOut:
 			log.Fatalf("all attempt to find a peer on WSL VM [%s] failed, is WSL or Peer running?", vmGuid.String())

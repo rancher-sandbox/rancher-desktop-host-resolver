@@ -21,8 +21,15 @@ jobs:
     - name: Build
       run: go build -v ./...
 
-    - name: Run golangci-lint
+    - name: Run golangci-lint [linux]
       uses: golangci/golangci-lint-action@v3.1.0
+      env:
+        GOOS: "linux"
+
+    - name: Run golangci-lint [windows]
+      uses: golangci/golangci-lint-action@v3.1.0
+      env:
+        GOOS: "windows"
 
     - name: Build Docker Image
       run: docker build -t host-resolver:latest .

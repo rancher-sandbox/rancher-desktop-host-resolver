@@ -16,16 +16,16 @@ package commands
 import (
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/vmsock"
-	log"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
-func StartVsockHost(IPv6 bool, hosts map[string]string, upstreamServers []string) error {
+func StartVsockHost(ipv6 bool, hosts map[string]string, upstreamServers []string) error {
 	l, err := vmsock.Listen()
 	if err != nil {
 		return err
 	}
 	options := dns.ServerOptions{
-		IPv6:            IPv6,
+		IPv6:            ipv6,
 		StaticHosts:     hosts,
 		UpstreamServers: upstreamServers,
 		Listener:        l,
