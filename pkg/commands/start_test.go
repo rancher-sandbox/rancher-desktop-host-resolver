@@ -36,14 +36,14 @@ func TestStart(t *testing.T) {
 	t.Logf("Checking for TCP port is running on %v", tPort)
 	tcpListener, err := net.Listen("tcp", fmt.Sprintf(":%s", tPort))
 	if tcpListener != nil {
-		defer tcpListener.Close() //nolint:errcheck
+		defer tcpListener.Close()
 	}
 	require.Errorf(t, err, "host-resolver is not listening on TCP port %s", tPort)
 
 	t.Logf("Checking for UDP port is running on %v", uPort)
 	udpListener, err := net.Listen("udp", fmt.Sprintf(":%s", uPort))
 	if udpListener != nil {
-		defer udpListener.Close() //nolint:errcheck
+		defer udpListener.Close()
 	}
 	require.Errorf(t, err, "host-resolver is not listening on UDP port %s", uPort)
 

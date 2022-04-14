@@ -1,7 +1,6 @@
 run:
   skip-files:
-    - pkg/dns/dns.go
-
+    - pkg/dns/dns.go # don't lint upstream file, it will be removed soon
 linters-settings:
   dupl:
     threshold: 100
@@ -78,6 +77,7 @@ linters:
     - misspell
     - nakedret
     - noctx
+    - nolintlint
     - staticcheck
     - structcheck
     - stylecheck
@@ -89,7 +89,6 @@ linters:
     - whitespace
 
   # don't enable:
-  # - nolintlint
   # - asciicheck
   # - scopelint
   # - gochecknoglobals
