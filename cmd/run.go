@@ -40,7 +40,11 @@ func init() {
 	runCmd.Flags().IntVarP(&tcpPort, "tcp-port", "t", 0, "TCP port to listen on, if non provided random port will be chosen.")
 	runCmd.Flags().IntVarP(&udpPort, "udp-port", "u", 0, "UDP port to listen on, if non provided random port will be chosen.")
 	runCmd.Flags().BoolVarP(&ipv6, "ipv6", "6", false, "Enable IPv6 address family.")
-	runCmd.Flags().StringToStringVarP(&hosts, "built-in-hosts", "c", map[string]string{}, "List of built-in Cnames to IPv4, IPv6 or IPv4-mapped IPv6 in host.rd.internal=111.111.111.111,com.backend.process=2001:db8::68 format.")
+	runCmd.Flags().StringToStringVarP(&hosts,
+		"built-in-hosts",
+		"c",
+		map[string]string{},
+		"List of built-in Cnames to IPv4, IPv6 or IPv4-mapped IPv6 in host.rd.internal=111.111.111.111,com.backend.process=2001:db8::68 format.")
 	runCmd.Flags().StringArrayVarP(&upstreamServers, "upstream-servers", "s", []string{}, "List of IP addresses for upstream DNS servers.")
 	rootCmd.AddCommand(runCmd)
 }

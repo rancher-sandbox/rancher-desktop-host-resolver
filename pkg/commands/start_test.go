@@ -31,7 +31,7 @@ func TestStart(t *testing.T) {
 	uPort := randomPort()
 
 	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tPort, "-u", uPort})
-	defer cmd.Process.Kill()
+	defer cmd.Process.Kill() //nolint:errcheck
 
 	t.Logf("Checking for TCP port is running on %v", tPort)
 	tcpListener, err := net.Listen("tcp", fmt.Sprintf(":%s", tPort))
@@ -54,8 +54,12 @@ func TestStart(t *testing.T) {
 func TestQueryStaticHosts(t *testing.T) {
 	tPort := randomPort()
 	uPort := randomPort()
-	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tPort, "-u", uPort, "-c", "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222"})
-	defer cmd.Process.Kill()
+	cmd := runHostResovler(t, []string{
+		"-a", "127.0.0.1",
+		"-t", tPort,
+		"-u", uPort,
+		"-c", "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222"})
+	defer cmd.Process.Kill() //nolint:errcheck
 
 	t.Logf("Checking for TCP port on %s", tPort)
 	addrs, err := dnsLookup(t, tPort, "tcp", "host.rd.test")
@@ -76,7 +80,7 @@ func TestQueryUpstreamServer(t *testing.T) {
 	tPort := randomPort()
 	uPort := randomPort()
 	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tPort, "-u", uPort, "-s", "[8.8.8.8]"})
-	defer cmd.Process.Kill()
+	defer cmd.Process.Kill() //nolint:errcheck
 
 	t.Logf("Resolving via upstream server on [TCP] --> %s", tPort)
 	addrs, err := dnsLookup(t, tPort, "tcp", "google.ca")
@@ -125,6 +129,7 @@ func dnsLookup(t *testing.T, resolverPort, resolverProtocol, domain string) ([]n
 	return resolver.LookupIP(ctx, "ip4", domain)
 }
 
+//nolint:gosec
 func randomPort() string {
 	return fmt.Sprint(rand.Intn(32767) + 32768)
 }
