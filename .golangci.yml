@@ -103,3 +103,10 @@ linters:
   # - testpackage
   # - revive
   # - wsl
+
+issues:
+  # Excluding configuration per-path, per-linter, per-text and per-source
+  exclude-rules:
+    - path: cmd/* #exclude cmd dir for gochecknoinits since it contains init funcs for cobra cli
+      linters:
+        - gochecknoinits

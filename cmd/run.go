@@ -35,7 +35,6 @@ var (
 	}
 )
 
-//nolint:gochecknoinits
 func init() {
 	runCmd.Flags().StringVarP(&addr, "listen-address", "a", "", "Address to listen on, \":dnsPort\" if empty.")
 	runCmd.Flags().IntVarP(&tcpPort, "tcp-port", "t", 0, "TCP port to listen on, if non provided random port will be chosen.")
