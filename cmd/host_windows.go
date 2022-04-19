@@ -19,7 +19,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// hostCmd represents the host command
+// hostCmd represents the AF_VSOCK host process that run in a host machine.
+// It receives all the DNS queries from vsock-peer over the AF_VSOCK connection for resolution.
+// Upon startup it attempts to finds the peer process over AF_VSOCK connection by establishing
+// a handshake and verifying a seed string to make sure it is communicating with the right VM.
 var (
 	hostCmd = &cobra.Command{
 		Use:   "vsock-host",
@@ -29,7 +32,7 @@ It handles and forwards both TCP and UDP DNS queries over a virtual socket for t
 that runs inside a VM.
 
 --------------------HOST-------------------------------------WSL DISTRO------------
-| vsock-host | <----- AF_VOSOCK -----> [ VM ] <----- AF_VOSOCK -----> | vsock-peer |
+| vsock-host | <----- AF_VSOCK -----> [ VM ] <----- AF_VSOCK -----> | vsock-peer |
 -----------------------------------------------------------------------------------`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ipv6, err := cmd.Flags().GetBool("ipv6")
@@ -52,7 +55,7 @@ that runs inside a VM.
 func init() {
 	hostCmd.Flags().BoolP("ipv6", "6", false, "Enable IPv6 address family.")
 	hostCmd.Flags().StringToStringP("built-in-hosts", "c", map[string]string{},
-		"List of built-in Cnames to IPv4, IPv6 or IPv4-mapped IPv6 in host.rd.internal=111.111.111.111,com.backend.process=2001:db8::68 format.")
+		"List of built-in CNAMEs to IPv4, IPv6 or IPv4-mapped IPv6 in host.rancherdesktop.io=111.111.111.111 format.")
 	hostCmd.Flags().StringArrayP("upstream-servers", "s", []string{}, "List of IP addresses for upstream DNS servers.")
 	rootCmd.AddCommand(hostCmd)
 }

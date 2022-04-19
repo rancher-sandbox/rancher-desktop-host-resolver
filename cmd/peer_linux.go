@@ -23,7 +23,10 @@ import (
 
 const defaultPort = 53
 
-// peerCmd represents the peer command
+// peerCmd represents the vsock-peer process that runs in WSL Distro, it listens on
+// specified IP address and ports inside a WSL distro for all incoming DNS queries.
+// It forwards the queries over the AF_VSOCK connection to the receiving vsock-host
+// that is running on host.
 var (
 	peerCmd = &cobra.Command{
 		Use:   "vsock-peer",
@@ -32,10 +35,10 @@ var (
 AF_VSOCK connections from inside of the WSL VM. It is also a stub DNS forwarder for the host-resovler.
 
 --------------------HOST-------------------------------------WSL DISTRO------------
-| vsock-host | <----- AF_VOSOCK -----> [ VM ] <----- AF_VOSOCK -----> | vsock-peer |
+| vsock-host | <----- AF_VSOCK -----> [ VM ] <----- AF_VSOCK -----> | vsock-peer |
 -----------------------------------------------------------------------------------`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// we will always listen for handshake connections from the host (server) incase of restarts
+			// We will always listen for handshake connections from the host (server) in case of restarts
 			go vmsock.PeerHandshake()
 
 			addr, err := cmd.Flags().GetString("listen-address")

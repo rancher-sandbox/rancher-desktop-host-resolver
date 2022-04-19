@@ -100,12 +100,12 @@ func handleUDP(uConn *net.UDPConn, addr *net.UDPAddr, b []byte) {
 	}
 }
 
+// appendHeaderLen is to accommodate for the header length that exists in TCP buffer for DNS payload
+// DNS server does a binary read on the first 8 byte(uint16) of the buffer for this length
+// the UDP buffer does not include this header length, therefore it would need to be added
 func appendHeaderLen(m []byte, n int) []byte {
-	// This is to accommodate for the header length that exists in TCP buffer for DNS payload
-	// DNS server does a binary read on the first 8 byte(uint16) of the buffer for this length
-	// the UDP buffer does not include this header length, therefore it would need to be added
 	msg := make([]byte, 2+n)
-	// we cannot do a bindary.Write on net.Con since this is a UDP Conn
+	// we cannot do a binary.Write on net.Conn since this is a UDP Conn
 	binary.BigEndian.PutUint16(msg, uint16(n))
 	copy(msg[2:], m)
 	return msg

@@ -24,33 +24,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func StartStandAloneServer(address string,
-	udpLocalPort,
-	tcpLocalPort int,
-	ipv6 bool,
-	hosts map[string]string,
-	upstreamServers []string) error {
+func StartStandAloneServer(options *dns.ServerOptions) error {
 	var err error
-	if udpLocalPort == 0 {
-		udpLocalPort, err = randomUDPPort()
+	if options.UDPPort == 0 {
+		options.UDPPort, err = randomUDPPort()
 		if err != nil {
 			return err
 		}
 	}
-	if tcpLocalPort == 0 {
-		tcpLocalPort, err = randomTCPPort()
+	if options.TCPPort == 0 {
+		options.TCPPort, err = randomTCPPort()
 		if err != nil {
 			return err
 		}
 	}
-	srv, err := dns.Start(dns.ServerOptions{
-		Address:         address,
-		UDPPort:         udpLocalPort,
-		TCPPort:         tcpLocalPort,
-		IPv6:            ipv6,
-		StaticHosts:     hosts,
-		UpstreamServers: upstreamServers,
-	})
+	srv, err := dns.Start(options)
 	if err != nil {
 		return err
 	}

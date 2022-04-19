@@ -37,5 +37,6 @@ func PeerHandshake() {
 		}
 
 		conn.Close()
+		log.Info("successful handshake with vsock-host")
 	}
 }

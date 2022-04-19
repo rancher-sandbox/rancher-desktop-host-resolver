@@ -24,13 +24,13 @@ func StartVsockHost(ipv6 bool, hosts map[string]string, upstreamServers []string
 	if err != nil {
 		return err
 	}
-	options := dns.ServerOptions{
-		IPv6:            ipv6,
-		StaticHosts:     hosts,
-		UpstreamServers: upstreamServers,
-		Listener:        l,
-	}
-	srv, err := dns.StartWithListener(options)
+	srv, err := dns.StartWithListener(
+		&dns.ServerOptions{
+			IPv6:            ipv6,
+			StaticHosts:     hosts,
+			UpstreamServers: upstreamServers,
+			Listener:        l,
+		})
 	if err != nil {
 		return err
 	}
