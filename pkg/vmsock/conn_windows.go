@@ -11,29 +11,31 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package cmd
+
+package vmsock
 
 import (
-	"os"
+	"fmt"
+	"net"
 
-	"github.com/spf13/cobra"
+	"github.com/Microsoft/go-winio"
+	"github.com/linuxkit/virtsock/pkg/hvsock"
 )
 
-var (
-	rootCmd = &cobra.Command{
-		Use:   "host-resolver",
-		Short: "Rancher Desktop DNS resolver",
-		Long: `This stub resolver handles the DNS resolution on the host machine,
-it allows for more robust name resolution in split VPN tunneling scenarios.
-It can run on Windows, Darwin and Linux.`,
-		Args: cobra.MinimumNArgs(1),
-		Run:  func(cmd *cobra.Command, args []string) {},
-	}
-)
-
-func Execute() {
-	err := rootCmd.Execute()
+func Listen() (net.Listener, error) {
+	vmGuid, err := vmGuid()
 	if err != nil {
-		os.Exit(1)
+		return nil, fmt.Errorf("Listen, could not determine VM GUID: %v", err)
 	}
+	svcPort, err := hvsock.GUIDFromString(winio.VsockServiceID(HostListenPort).String())
+	if err != nil {
+		return nil, fmt.Errorf("Listen, could not parse Hyper-v service GUID: %v", err)
+	}
+
+	addr := hvsock.Addr{
+		VMID:      vmGuid,
+		ServiceID: svcPort,
+	}
+
+	return hvsock.Listen(addr)
 }

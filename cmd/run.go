@@ -15,10 +15,13 @@ package cmd
 
 import (
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/commands"
+	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
 	"github.com/spf13/cobra"
 )
 
-// runCmd represents the run command
+// runCmd represent the standalone command, it startup a standalone server that listens on a given
+// IP and ports along with other specified arguments. The purpose of this process is mainly
+// for testing of the contract with underlying DNS provider, debugging and benchmarking.
 var (
 	addr             string
 	tcpPort, udpPort int
@@ -27,10 +30,21 @@ var (
 	upstreamServers  []string
 
 	runCmd = &cobra.Command{
-		Use:   "run",
-		Short: "Runs the host-resolver with a given arguments",
+		Use:   "standalone",
+		Short: "Runs the host-resolver standalone server with a given arguments",
+		Long: `Runs the host-resolver in standalone mode; this mode allows the host-resolver to
+attach to a defined IP and ports with given options. This mode is ideal for testing the contract
+with the underlying DNS server. Use this mode for testing, debugging and benchmarks.
+		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return commands.Start(addr, udpPort, tcpPort, ipv6, hosts, upstreamServers)
+			return commands.StartStandAloneServer(&dns.ServerOptions{
+				Address:         addr,
+				UDPPort:         udpPort,
+				TCPPort:         tcpPort,
+				IPv6:            ipv6,
+				StaticHosts:     hosts,
+				UpstreamServers: upstreamServers,
+			})
 		},
 	}
 )

@@ -14,36 +14,29 @@ limitations under the License.
 package commands
 
 import (
-	"os"
-	"os/signal"
-	"syscall"
-
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
-	"github.com/sirupsen/logrus"
+	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/vmsock"
+	log "github.com/sirupsen/logrus"
 )
 
-func Start(address string, udpLocalPort, tcpLocalPort int, ipv6 bool, hosts map[string]string, upstreamServers []string) error {
-	srv, err := dns.Start(dns.ServerOptions{
-		Address:         address,
-		UDPPort:         udpLocalPort,
-		TCPPort:         tcpLocalPort,
-		IPv6:            ipv6,
-		StaticHosts:     hosts,
-		UpstreamServers: upstreamServers,
-	},
-	)
+func StartVsockHost(ipv6 bool, hosts map[string]string, upstreamServers []string) error {
+	l, err := vmsock.Listen()
 	if err != nil {
 		return err
 	}
-	logrus.Infof("Started srv %+v", srv)
+	srv, err := dns.StartWithListener(
+		&dns.ServerOptions{
+			IPv6:            ipv6,
+			StaticHosts:     hosts,
+			UpstreamServers: upstreamServers,
+			Listener:        l,
+		})
+	if err != nil {
+		return err
+	}
+	log.Infof("Started vsock-host srv %+v", srv)
 	defer srv.Shutdown()
 
-	terminateCh := make(chan os.Signal, 1)
-	signal.Notify(terminateCh, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGINT)
-
-	for range terminateCh {
-		logrus.Info("host-resolver stopped.")
-		break
-	}
+	run()
 	return nil
 }
