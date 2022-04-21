@@ -31,9 +31,9 @@ var (
 It handles and forwards both TCP and UDP DNS queries over a virtual socket for the peer
 that runs inside a VM.
 
---------------------HOST-------------------------------------WSL DISTRO------------
-| vsock-host | <----- AF_VSOCK -----> [ VM ] <----- AF_VSOCK -----> | vsock-peer |
------------------------------------------------------------------------------------`,
+ --------------------HOST-------------------------------------WSL DISTRO-----------
+| vsock-host | <----- AF_VSOCK -----> [ VM ] <----- AF_VSOCK -----> | vsock-peer   |
+ ----------------------------------------------------------------------------------`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ipv6, err := cmd.Flags().GetBool("ipv6")
 			if err != nil {

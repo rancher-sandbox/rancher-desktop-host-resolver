@@ -25,7 +25,7 @@ import (
 func Listen() (net.Listener, error) {
 	vmGuid, err := vmGuid()
 	if err != nil {
-		return nil, fmt.Errorf("Listen, could not use VM GUID: %v", err)
+		return nil, fmt.Errorf("Listen, could not determine VM GUID: %v", err)
 	}
 	svcPort, err := hvsock.GUIDFromString(winio.VsockServiceID(HostListenPort).String())
 	if err != nil {

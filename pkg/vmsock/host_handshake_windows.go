@@ -17,6 +17,8 @@ package vmsock
 import (
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"time"
 
 	"github.com/Microsoft/go-winio"
@@ -79,7 +81,7 @@ func tryFindGuid(found chan hvsock.GUID) (hvsock.GUID, error) {
 
 // handshake attempts to perform a handshake by verifying the seed with a running
 // af_vsock peer in WSL distro, it attempts once per second
-func handshake(vmGuid hvsock.GUID, found chan hvsock.GUID, done chan bool) {
+func handshake(vmGuid hvsock.GUID, found chan<- hvsock.GUID, done <-chan bool) {
 	svcPort, err := hvsock.GUIDFromString(winio.VsockServiceID(PeerHandshakePort).String())
 	if err != nil {
 		log.Errorf("hostHandshake parsing svc port: %v", err)
@@ -100,21 +102,29 @@ func handshake(vmGuid hvsock.GUID, found chan hvsock.GUID, done chan bool) {
 			conn, err := hvsock.Dial(addr)
 			if err != nil {
 				attempt++
+				log.Debugf("handshake attempt[%v] to dial into VM, looking for vsock-peer", attempt)
 				continue
 			}
-			seed := make([]byte, len(SeedPhrase))
-			_, err = conn.Read(seed)
+			seed, err := readSeed(conn)
 			if err != nil {
 				log.Errorf("hosthandshake attempt to read the seed: %v", err)
 			}
 			if err := conn.Close(); err != nil {
 				log.Errorf("hosthandshake closing connection: %v", err)
 			}
-			if string(seed) == SeedPhrase {
+			if seed == SeedPhrase {
 				log.Infof("successfully estabilished a handshake with a peer: %s", vmGuid.String())
 				found <- vmGuid
 				return
 			}
 		}
 	}
+}
+
+func readSeed(conn net.Conn) (string, error) {
+	seed := make([]byte, len(SeedPhrase))
+	if _, err := io.ReadFull(conn, seed); err != nil {
+		return "", err
+	}
+	return string(seed), nil
 }

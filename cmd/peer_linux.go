@@ -34,9 +34,9 @@ var (
 		Long: `Peer process to handle incoming TCP/UDP DNS queries over the
 AF_VSOCK connections from inside of the WSL VM. It is also a stub DNS forwarder for the host-resovler.
 
---------------------HOST-------------------------------------WSL DISTRO------------
-| vsock-host | <----- AF_VSOCK -----> [ VM ] <----- AF_VSOCK -----> | vsock-peer |
------------------------------------------------------------------------------------`,
+ --------------------HOST-------------------------------------WSL DISTRO-----------
+| vsock-host | <----- AF_VSOCK -----> [ VM ] <----- AF_VSOCK -----> | vsock-peer   |
+ ----------------------------------------------------------------------------------`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// We will always listen for handshake connections from the host (server) in case of restarts
 			go vmsock.PeerHandshake()

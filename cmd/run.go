@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// runCmd represent the run command, it startup a standalone server that listens on a given
+// runCmd represent the standalone command, it startup a standalone server that listens on a given
 // IP and ports along with other specified arguments. The purpose of this process is mainly
 // for testing of the contract with underlying DNS provider, debugging and benchmarking.
 var (
@@ -30,9 +30,9 @@ var (
 	upstreamServers  []string
 
 	runCmd = &cobra.Command{
-		Use:   "run",
+		Use:   "standalone",
 		Short: "Runs the host-resolver standalone server with a given arguments",
-		Long: `Runs the host-resolver in a server mode, this mode allows the host-resolver to
+		Long: `Runs the host-resolver in standalone mode; this mode allows the host-resolver to
 attach to a defined IP and ports with given options. This mode is ideal for testing the contract
 with the underlying DNS server. Use this mode for testing, debugging and benchmarks.
 		`,

@@ -91,7 +91,7 @@ func TestQueryUpstreamServer(t *testing.T) {
 
 func runHostResovler(t *testing.T, args []string) *exec.Cmd {
 	// add run command to the tip
-	args = append([]string{"run"}, args...)
+	args = append([]string{"standalone"}, args...)
 
 	cmd := exec.Command("/app/host-resolver", args...)
 	cmd.Stdout = os.Stdout
@@ -125,9 +125,7 @@ func dnsLookup(t *testing.T, resolverPort, resolverProtocol, domain string) ([]n
 	return resolver.LookupIP(ctx, "ip4", domain)
 }
 
-// nolint: gocritic
-// named returns could yield to additional code
-// since the types are being converted
+// nolint: gocritic // unamedresult
 func acquirePorts(t *testing.T) (string, string) {
 	tport, err := randomTCPPort()
 	require.NoError(t, err)
