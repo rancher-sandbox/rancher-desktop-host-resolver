@@ -23,5 +23,5 @@ jobs:
         goos: ${{ matrix.goos }}
         goarch: ${{ matrix.goarch }}
         goversion: 1.18
-        binary_name: "resolver"
+        binary_name: "host-resolver"
         extra_files: LICENSE README.md
