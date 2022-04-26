@@ -3,6 +3,9 @@ on:
   release:
     types: [created]
 
+env:
+  CGO_ENABLED: 0
+
 jobs:
   releases-matrix:
     name: Release Binaries
