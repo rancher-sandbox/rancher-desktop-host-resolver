@@ -17,11 +17,16 @@ import (
 	"context"
 
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/vmsock"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 )
 
 const defaultPort = 53
+const localhost = "127.0.0.1"
+
+var peerViper = viper.New()
 
 // peerCmd represents the vsock-peer process that runs in WSL Distro, it listens on
 // specified IP address and ports inside a WSL distro for all incoming DNS queries.
@@ -41,18 +46,10 @@ AF_VSOCK connections from inside of the WSL VM. It is also a stub DNS forwarder 
 			// We will always listen for handshake connections from the host (server) in case of restarts
 			go vmsock.PeerHandshake()
 
-			addr, err := cmd.Flags().GetString("listen-address")
-			if err != nil {
-				return err
-			}
-			tcpPort, err := cmd.Flags().GetInt("tcp-port")
-			if err != nil {
-				return err
-			}
-			udpPort, err := cmd.Flags().GetInt("udp-port")
-			if err != nil {
-				return err
-			}
+			addr := peerViper.GetString("listen-address")
+			tcpPort := peerViper.GetInt("tcp-port")
+			udpPort := peerViper.GetInt("udp-port")
+
 			errs, _ := errgroup.WithContext(context.Background())
 			errs.Go(func() error {
 				return vmsock.ListenTCP(addr, tcpPort)
@@ -67,8 +64,12 @@ AF_VSOCK connections from inside of the WSL VM. It is also a stub DNS forwarder 
 )
 
 func init() {
-	peerCmd.Flags().StringP("listen-address", "a", "127.0.0.1", "Address to listen on, \"127.0.0.1:dnsPort\" if empty.")
+	peerCmd.Flags().StringP("listen-address", "a", localhost, "Address to listen on, \"127.0.0.1:dnsPort\" if empty.")
 	peerCmd.Flags().IntP("tcp-port", "t", defaultPort, "TCP port to listen on, default is 53.")
 	peerCmd.Flags().IntP("udp-port", "u", defaultPort, "UDP port to listen on, default is 53.")
+	peerViper.AutomaticEnv()
+	if err := peerViper.BindPFlags(peerCmd.Flags()); err != nil {
+		logrus.Fatalf("Faild to bind peer flags: %v", err)
+	}
 	rootCmd.AddCommand(peerCmd)
 }
