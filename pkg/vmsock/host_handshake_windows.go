@@ -32,7 +32,7 @@ const timeoutSeconds = 10
 // vmGuid retrieves the GUID for a correct hyper-v VM (most likely WSL).
 // It performs a handshake with a running vsock-peer in the WSL distro
 // to make sure we establish the AF_VSOCK connection with a right VM.
-func vmGuid() (hvsock.GUID, error) {
+func vmGUID() (hvsock.GUID, error) {
 	key, err := registry.OpenKey(
 		registry.LOCAL_MACHINE,
 		`SOFTWARE\Microsoft\Windows NT\CurrentVersion\HostComputeService\VolatileStore\ComputeSystem`,
@@ -55,24 +55,24 @@ func vmGuid() (hvsock.GUID, error) {
 	defer close(done)
 
 	for _, name := range names {
-		vmGuid, err := hvsock.GUIDFromString(name)
+		vmGUID, err := hvsock.GUIDFromString(name)
 		if err != nil {
 			log.Errorf("invalid VM name: [%s], err: %v", name, err)
 			continue
 		}
-		go handshake(vmGuid, found, done)
+		go handshake(vmGUID, found, done)
 	}
-	return tryFindGuid(found)
+	return tryFindGUID(found)
 }
 
 // tryFindGuid waits on a found chanel to receive a GUID until
 // deadline of 10s is reached
-func tryFindGuid(found chan hvsock.GUID) (hvsock.GUID, error) {
+func tryFindGUID(found chan hvsock.GUID) (hvsock.GUID, error) {
 	bailOut := time.After(time.Second * timeoutSeconds)
 	for {
 		select {
-		case vmGuid := <-found:
-			return vmGuid, nil
+		case vmGUID := <-found:
+			return vmGUID, nil
 		case <-bailOut:
 			return hvsock.GUIDZero, errors.New("could not find vsock-peer process on any hyper-v VM(s)")
 		}
@@ -81,13 +81,13 @@ func tryFindGuid(found chan hvsock.GUID) (hvsock.GUID, error) {
 
 // handshake attempts to perform a handshake by verifying the seed with a running
 // af_vsock peer in WSL distro, it attempts once per second
-func handshake(vmGuid hvsock.GUID, found chan<- hvsock.GUID, done <-chan bool) {
+func handshake(vmGUID hvsock.GUID, found chan<- hvsock.GUID, done <-chan bool) {
 	svcPort, err := hvsock.GUIDFromString(winio.VsockServiceID(PeerHandshakePort).String())
 	if err != nil {
 		log.Errorf("hostHandshake parsing svc port: %v", err)
 	}
 	addr := hvsock.Addr{
-		VMID:      vmGuid,
+		VMID:      vmGUID,
 		ServiceID: svcPort,
 	}
 
@@ -96,7 +96,7 @@ func handshake(vmGuid hvsock.GUID, found chan<- hvsock.GUID, done <-chan bool) {
 	for {
 		select {
 		case <-done:
-			log.Infof("attempt to handshake with [%s], goroutine is terminated", vmGuid.String())
+			log.Infof("attempt to handshake with [%s], goroutine is terminated", vmGUID.String())
 			return
 		case <-attempInterval.C:
 			conn, err := hvsock.Dial(addr)
@@ -113,8 +113,8 @@ func handshake(vmGuid hvsock.GUID, found chan<- hvsock.GUID, done <-chan bool) {
 				log.Errorf("hosthandshake closing connection: %v", err)
 			}
 			if seed == SeedPhrase {
-				log.Infof("successfully estabilished a handshake with a peer: %s", vmGuid.String())
-				found <- vmGuid
+				log.Infof("successfully estabilished a handshake with a peer: %s", vmGUID.String())
+				found <- vmGUID
 				return
 			}
 		}

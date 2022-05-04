@@ -23,7 +23,7 @@ import (
 )
 
 func Listen() (net.Listener, error) {
-	vmGuid, err := vmGuid()
+	vmGUID, err := vmGUID()
 	if err != nil {
 		return nil, fmt.Errorf("Listen, could not determine VM GUID: %v", err)
 	}
@@ -33,7 +33,7 @@ func Listen() (net.Listener, error) {
 	}
 
 	addr := hvsock.Addr{
-		VMID:      vmGuid,
+		VMID:      vmGUID,
 		ServiceID: svcPort,
 	}
 
