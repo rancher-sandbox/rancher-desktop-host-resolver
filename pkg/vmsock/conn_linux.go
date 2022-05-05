@@ -24,7 +24,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const UDPMaxBufer = 1024
+const UDPMaxBuffer = 512
 
 func ListenTCP(addr string, port int) error {
 	l, err := net.ListenTCP("tcp", &net.TCPAddr{IP: net.ParseIP(addr), Port: port})
@@ -64,7 +64,7 @@ func ListenUDP(addr string, port int) error {
 	}
 	defer l.Close()
 	for {
-		buf := make([]byte, UDPMaxBufer)
+		buf := make([]byte, UDPMaxBuffer)
 		n, addr, err := l.ReadFromUDP(buf)
 		if err != nil {
 			log.Errorf("ListenUDP, read error: %v", err)
@@ -87,14 +87,21 @@ func handleUDP(uConn *net.UDPConn, addr *net.UDPAddr, b []byte) {
 		log.Errorf("handleUDP write to vsock host: %v", err)
 		return
 	}
-	data := make([]byte, UDPMaxBufer)
-	_, err = conn.Read(data)
+	data := make([]byte, UDPMaxBuffer)
+	n, err := conn.Read(data)
 	if err != nil {
 		log.Errorf("handleUDP read from vsock host: %v", err)
 		return
 	}
-	// remove the tcp length from the beginning since that is the place for msg id ;b
-	_, err = uConn.WriteToUDP(data[2:], addr)
+	// TCP DNS requests have two-byte length prefix, which is not present in UDP
+	// DNS requests (See RFC 1035).  Drop the prefix; however, note that the
+	// length of the write needs to match the length of the received slice (as
+	// opposed to its capacity).  This is necessary since some tools such as
+	// busybox nslookup explicitly check this.
+	// https://git.busybox.net/busybox/tree/networking/nslookup.c?h=1_35_0#n640
+	reqBody := data[2:n]
+	_, err = uConn.WriteToUDP(reqBody, addr)
+
 	if err != nil {
 		log.Errorf("handleUDP write to original requester: %v", err)
 	}
