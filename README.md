@@ -7,7 +7,7 @@ Below is the current architecture of Rancher Desktop when using host-resolver on
 
 ```mermaid
 flowchart  LR;
- subgraph Host("HOST")
+ subgraph Host["HOST"]
  isp("Public DNS")
  corp("Corporate VPN")
  resolver{"Host Resolver (Host Process)"}
@@ -16,7 +16,7 @@ flowchart  LR;
  api  <--->  isp
  api  <--->  corp
  end
- subgraph VM("WSL VM")
+ subgraph VM["WSL VM"]
  peer{"Host Resolver \n(Peer Process)"}
  c1("container 1")
  c2("container 2")
