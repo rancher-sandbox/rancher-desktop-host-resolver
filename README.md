@@ -10,7 +10,7 @@ flowchart  LR;
  subgraph Host["HOST"]
  isp("Public DNS")
  corp("Corporate VPN")
- resolver{"Host Resolver (Host Process)"}
+ resolver{"Host Resolver \n(Host Process)"}
  api(("win32 API"))
  resolver <-.->  api
  api  <--->  isp
