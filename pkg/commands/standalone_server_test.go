@@ -15,7 +15,9 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -25,6 +27,70 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestStartEnvVarArgs(t *testing.T) {
+	t.Log("Testing Standalone Server with env var arguments")
+	tport, uport := acquirePorts(t)
+	os.Setenv("LISTEN-ADDRESS", "127.0.0.1")
+	os.Setenv("UDP-PORT", uport)
+	os.Setenv("TCP-PORT", tport)
+	os.Setenv("UPSTREAM-SERVERS", "[8.8.8.8]")
+	hosts := map[string]string{
+		"host.rd.test":  "192.0.2.111",
+		"host2.rd.test": "192.0.2.222",
+	}
+	// we need to serialize built-in-hosts otherwise
+	// viper is unable to read on the receiving end
+	b, err := json.Marshal(&hosts)
+	require.NoError(t, err, "marshaling built-in-hosts")
+	if err != nil {
+		log.Fatal(err)
+	}
+	os.Setenv("BUILT-IN-HOSTS", string(b))
+	cmd := runHostResovler(t, []string{})
+	defer cmd.Process.Kill() //nolint:errcheck
+
+	t.Logf("Checking for TCP port is running on %v", tport)
+	tcpListener, err := net.Listen("tcp", fmt.Sprintf(":%s", tport))
+	if tcpListener != nil {
+		defer tcpListener.Close()
+	}
+	require.Errorf(t, err, "host-resolver is not listening on TCP port %s", tport)
+
+	t.Logf("Checking for UDP port is running on %v", uport)
+	udpListener, err := net.Listen("udp", fmt.Sprintf(":%s", uport))
+	if udpListener != nil {
+		defer udpListener.Close()
+	}
+	require.Errorf(t, err, "host-resolver is not listening on UDP port %s", uport)
+
+	output := netstat(t)
+	require.Contains(t, string(output), fmt.Sprintf("%v/host-resolver", cmd.Process.Pid), "Expected the same Pid")
+
+	t.Logf("Resolving via upstream server on [TCP] --> %s", tport)
+	addrs, err := dnsLookup(t, tport, "tcp", "google.ca")
+	require.NoError(t, err, "Lookup IP failed")
+	require.NotEmpty(t, addrs, "Expect at least an address")
+
+	t.Logf("Resolving via upstream server on [UDP] --> %s", uport)
+	addrs, err = dnsLookup(t, uport, "udp", "google.ca")
+	require.NoError(t, err, "Lookup IP failed")
+	require.NotEmpty(t, addrs, "Expect at least an address")
+
+	t.Logf("DNS TCP query on %s", tport)
+	addrs, err = dnsLookup(t, tport, "tcp", "host.rd.test")
+	require.NoError(t, err, "Lookup IP failed")
+
+	expected := []net.IP{net.IPv4(192, 0, 2, 111)}
+	require.ElementsMatch(t, ipToString(addrs), ipToString(expected))
+
+	t.Logf("DNS TCP query on %s", uport)
+	addrs, err = dnsLookup(t, uport, "udp", "host2.rd.test")
+	require.NoError(t, err, "Lookup IP failed")
+
+	expected = []net.IP{net.IPv4(192, 0, 2, 222)}
+	require.ElementsMatch(t, ipToString(addrs), ipToString(expected))
+}
 
 func TestStart(t *testing.T) {
 	tport, uport := acquirePorts(t)

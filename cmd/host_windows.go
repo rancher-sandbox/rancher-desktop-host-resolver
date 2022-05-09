@@ -16,8 +16,12 @@ package cmd
 
 import (
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/commands"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+var hostViper = viper.New()
 
 // hostCmd represents the AF_VSOCK host process that run in a host machine.
 // It receives all the DNS queries from vsock-peer over the AF_VSOCK connection for resolution.
@@ -35,18 +39,10 @@ that runs inside a VM.
 | vsock-host | <----- AF_VSOCK -----> [ VM ] <----- AF_VSOCK -----> | vsock-peer   |
  ----------------------------------------------------------------------------------`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ipv6, err := cmd.Flags().GetBool("ipv6")
-			if err != nil {
-				return err
-			}
-			hosts, err := cmd.Flags().GetStringToString("built-in-hosts")
-			if err != nil {
-				return err
-			}
-			upstreamServers, err := cmd.Flags().GetStringArray("upstream-servers")
-			if err != nil {
-				return err
-			}
+			ipv6 := hostViper.GetBool("ipv6")
+			upstreamServers := hostViper.GetStringSlice("upstream-servers")
+			hosts := hostViper.GetStringMapString("built-in-hosts")
+
 			return commands.StartVsockHost(ipv6, hosts, upstreamServers)
 		},
 	}
@@ -57,5 +53,9 @@ func init() {
 	hostCmd.Flags().StringToStringP("built-in-hosts", "c", map[string]string{},
 		"List of built-in CNAMEs to IPv4, IPv6 or IPv4-mapped IPv6 in host.rancherdesktop.io=111.111.111.111 format.")
 	hostCmd.Flags().StringArrayP("upstream-servers", "s", []string{}, "List of IP addresses for upstream DNS servers.")
+	hostViper.AutomaticEnv()
+	if err := hostViper.BindPFlags(hostCmd.Flags()); err != nil {
+		logrus.Fatalf("Faild to bind host flags: %v", err)
+	}
 	rootCmd.AddCommand(hostCmd)
 }

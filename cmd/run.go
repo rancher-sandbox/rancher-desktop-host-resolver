@@ -16,19 +16,17 @@ package cmd
 import (
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/commands"
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
+
+var runViper = viper.New()
 
 // runCmd represent the standalone command, it startup a standalone server that listens on a given
 // IP and ports along with other specified arguments. The purpose of this process is mainly
 // for testing of the contract with underlying DNS provider, debugging and benchmarking.
 var (
-	addr             string
-	tcpPort, udpPort int
-	ipv6             bool
-	hosts            map[string]string
-	upstreamServers  []string
-
 	runCmd = &cobra.Command{
 		Use:   "standalone",
 		Short: "Runs the host-resolver standalone server with a given arguments",
@@ -38,27 +36,31 @@ with the underlying DNS server. Use this mode for testing, debugging and benchma
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return commands.StartStandAloneServer(&dns.ServerOptions{
-				Address:         addr,
-				UDPPort:         udpPort,
-				TCPPort:         tcpPort,
-				IPv6:            ipv6,
-				StaticHosts:     hosts,
-				UpstreamServers: upstreamServers,
+				Address:         runViper.GetString("listen-address"),
+				UDPPort:         runViper.GetInt("udp-port"),
+				TCPPort:         runViper.GetInt("tcp-port"),
+				IPv6:            runViper.GetBool("ipv6"),
+				StaticHosts:     runViper.GetStringMapString("built-in-hosts"),
+				UpstreamServers: runViper.GetStringSlice("upstream-servers"),
 			})
 		},
 	}
 )
 
 func init() {
-	runCmd.Flags().StringVarP(&addr, "listen-address", "a", "", "Address to listen on, \":dnsPort\" if empty.")
-	runCmd.Flags().IntVarP(&tcpPort, "tcp-port", "t", 0, "TCP port to listen on, if non provided random port will be chosen.")
-	runCmd.Flags().IntVarP(&udpPort, "udp-port", "u", 0, "UDP port to listen on, if non provided random port will be chosen.")
-	runCmd.Flags().BoolVarP(&ipv6, "ipv6", "6", false, "Enable IPv6 address family.")
-	runCmd.Flags().StringToStringVarP(&hosts,
+	runCmd.Flags().StringP("listen-address", "a", "", "Address to listen on, \":dnsPort\" if empty.")
+	runCmd.Flags().IntP("tcp-port", "t", 0, "TCP port to listen on, if non provided random port will be chosen.")
+	runCmd.Flags().IntP("udp-port", "u", 0, "UDP port to listen on, if non provided random port will be chosen.")
+	runCmd.Flags().BoolP("ipv6", "6", false, "Enable IPv6 address family.")
+	runCmd.Flags().StringToStringP(
 		"built-in-hosts",
 		"c",
 		map[string]string{},
 		"List of built-in Cnames to IPv4, IPv6 or IPv4-mapped IPv6 in host.rd.internal=111.111.111.111,com.backend.process=2001:db8::68 format.")
-	runCmd.Flags().StringArrayVarP(&upstreamServers, "upstream-servers", "s", []string{}, "List of IP addresses for upstream DNS servers.")
+	runCmd.Flags().StringArrayP("upstream-servers", "s", []string{}, "List of IP addresses for upstream DNS servers.")
+	runViper.AutomaticEnv()
+	if err := runViper.BindPFlags(runCmd.Flags()); err != nil {
+		logrus.Fatalf("Faild to bind standalone server flags: %v", err)
+	}
 	rootCmd.AddCommand(runCmd)
 }
