@@ -17,7 +17,6 @@ import (
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/commands"
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -36,19 +35,12 @@ attach to a defined IP and ports with given options. This mode is ideal for test
 with the underlying DNS server. Use this mode for testing, debugging and benchmarks.
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			allSettings := runViper.AllSettings()
-			builtInHosts := allSettings["built-in-hosts"]
-			hosts, err := cast.ToStringMapStringE(builtInHosts)
-			if err != nil {
-				logrus.Errorf("reading built-in-hosts value: %v", err)
-			}
 			return commands.StartStandAloneServer(&dns.ServerOptions{
 				Address:         runViper.GetString("listen-address"),
 				UDPPort:         runViper.GetInt("udp-port"),
 				TCPPort:         runViper.GetInt("tcp-port"),
 				IPv6:            runViper.GetBool("ipv6"),
-				StaticHosts:     hosts,
+				StaticHosts:     runViper.GetStringMapString("built-in-hosts"),
 				UpstreamServers: runViper.GetStringSlice("upstream-servers"),
 			})
 		},

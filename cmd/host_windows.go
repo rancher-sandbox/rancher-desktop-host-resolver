@@ -17,7 +17,6 @@ package cmd
 import (
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/commands"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -42,13 +41,7 @@ that runs inside a VM.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ipv6 := hostViper.GetBool("ipv6")
 			upstreamServers := hostViper.GetStringSlice("upstream-servers")
-
-			allSettings := hostViper.AllSettings()
-			builtInHosts := allSettings["built-in-hosts"]
-			hosts, err := cast.ToStringMapStringE(builtInHosts)
-			if err != nil {
-				logrus.Errorf("reading built-in-hosts value: %v", err)
-			}
+			hosts := hostViper.GetStringMapString("built-in-hosts")
 
 			return commands.StartVsockHost(ipv6, hosts, upstreamServers)
 		},
