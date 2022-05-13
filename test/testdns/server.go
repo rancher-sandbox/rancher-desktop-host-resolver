@@ -1,33 +1,40 @@
-package test
+package testdns
 
 import (
 	"encoding/csv"
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
-var domainToIP = loadRecords("testdata/test-300.csv")
-
 const truncateSize = 512
 
-type handler struct {
+type Handler struct {
 	truncate bool
+	Arecords map[string][]string
+}
+
+func NewHandler(trucate bool) *Handler {
+	return &Handler{
+		truncate: trucate,
+	}
 }
 
 type Server struct {
-	Addr    string
-	TCPPort string
-	UDPPort string
+	Addr                   string
+	TCPPort                string
+	UDPPort                string
+	TCPHandler, UDPHandler *Handler
 }
 
 func (s *Server) Run() {
 	g := new(errgroup.Group)
-	udpSrv := &dns.Server{Addr: net.JoinHostPort(s.Addr, s.UDPPort), Net: "udp", Handler: &handler{truncate: true}}
+	udpSrv := &dns.Server{Addr: net.JoinHostPort(s.Addr, s.UDPPort), Net: "udp", Handler: s.UDPHandler}
 	defer func() {
 		if err := udpSrv.Shutdown(); err != nil {
 			logrus.Errorf("shutting down UDP server: %v", err)
@@ -35,7 +42,7 @@ func (s *Server) Run() {
 	}()
 	g.Go(udpSrv.ListenAndServe)
 
-	tcpSrv := &dns.Server{Addr: net.JoinHostPort(s.Addr, s.TCPPort), Net: "tcp", Handler: &handler{}}
+	tcpSrv := &dns.Server{Addr: net.JoinHostPort(s.Addr, s.TCPPort), Net: "tcp", Handler: s.TCPHandler}
 	defer func() {
 		if err := tcpSrv.Shutdown(); err != nil {
 			logrus.Errorf("shutting down TCP server: %v", err)
@@ -48,7 +55,7 @@ func (s *Server) Run() {
 	}
 }
 
-func (h *handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
+func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	msg := new(dns.Msg)
 	msg.SetReply(r)
 	msg.Compress = false
@@ -56,24 +63,23 @@ func (h *handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	if r.Opcode != dns.OpcodeQuery {
 		return
 	}
-	parseReply(msg)
+	h.parseReply(msg)
 	if h.truncate {
 		msg.Truncate(truncateSize)
 	}
-	err := w.WriteMsg(msg)
-	if err != nil {
+	if err := w.WriteMsg(msg); err != nil {
 		logrus.Errorf("ServeDNS trying to write message in udpHandler: %v", err)
 	}
 }
 
-func parseReply(msg *dns.Msg) {
-	logrus.Infof("ServeDNS handling request: %v", msg.Question)
+func (h *Handler) parseReply(msg *dns.Msg) {
+	logrus.Debugf("ServeDNS handling request: %v", msg.Question)
 	for _, q := range msg.Question {
 		switch q.Qtype { //nolint:gocritic // this will have additional cases soon
 		case dns.TypeA:
 			msg.Authoritative = true
 			domain := q.Name
-			addresses, ok := domainToIP[domain]
+			addresses, ok := h.Arecords[domain]
 			if ok {
 				for _, addr := range addresses {
 					msg.Answer = append(msg.Answer, &dns.A{
@@ -91,7 +97,8 @@ func parseReply(msg *dns.Msg) {
 	}
 }
 
-func loadRecords(path string) map[string][]string {
+func LoadRecords(p string) map[string][]string {
+	path := filepath.ToSlash(p)
 	f, err := os.Open(path)
 	if err != nil {
 		logrus.Panicf("opening file: %v err: %v", path, err)
