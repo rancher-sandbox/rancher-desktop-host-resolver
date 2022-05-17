@@ -5,6 +5,7 @@ package dns
 import (
 	"fmt"
 	"net"
+	"runtime"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -70,18 +71,28 @@ func newHandler(IPv6 bool, hosts map[string]string, upstreamServers []string) (d
 	var cc *dns.ClientConfig
 	var err error
 	if len(upstreamServers) == 0 {
-		cc, err = dns.ClientConfigFromFile("/etc/resolv.conf")
-		if err != nil {
-			logrus.WithError(err).Warnf("failed to detect system DNS, falling back to %v", defaultFallbackIPs)
+		if runtime.GOOS != "windows" {
+			cc, err = dns.ClientConfigFromFile("/etc/resolv.conf")
+			if err != nil {
+				logrus.WithError(err).Warnf("failed to detect system DNS, falling back to %v", defaultFallbackIPs)
+				cc, err = newStaticClientConfig(defaultFallbackIPs)
+				if err != nil {
+					return nil, err
+				}
+			}
+		} else {
+			// For windows, the only fallback addresses are defaultFallbackIPs
+			// since there is no /etc/resolv.conf
 			cc, err = newStaticClientConfig(defaultFallbackIPs)
 			if err != nil {
 				return nil, err
 			}
 		}
 	} else {
-		cc, err = newStaticClientConfig(upstreamServers)
-		if err != nil {
-			return nil, err
+		if cc, err = newStaticClientConfig(upstreamServers); err != nil {
+			if cc, err = newStaticClientConfig(defaultFallbackIPs); err != nil {
+				return nil, err
+			}
 		}
 	}
 
