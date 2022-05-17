@@ -60,7 +60,6 @@ linters:
     - dupl
     - errcheck
     - exportloopref
-    - funlen
     - gochecknoinits
     - goconst
     - gocritic
@@ -90,6 +89,7 @@ linters:
 
   # don't enable:
   # - asciicheck
+  # - funlen
   # - scopelint
   # - gochecknoglobals
   # - gocognit
