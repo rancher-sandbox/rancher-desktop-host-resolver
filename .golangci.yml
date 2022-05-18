@@ -1,6 +1,3 @@
-run:
-  skip-files:
-    - pkg/dns/dns.go # don't lint upstream file, it will be removed soon
 linters-settings:
   dupl:
     threshold: 100
@@ -110,3 +107,13 @@ issues:
     - path: cmd/* #exclude cmd dir for gochecknoinits since it contains init funcs for cobra cli
       linters:
         - gochecknoinits
+    - # Allow overly-complex upstream file
+      path: pkg/dns/dns.go
+      linters:
+        - funlen
+        - gocyclo
+    - # Allow upstream code that doesn't conform
+      path: pkg/dns/dns.go
+      linters:
+        - gocritic
+      text: captLocal
