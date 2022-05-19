@@ -25,7 +25,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const lookupTimeoutSec = 10 // 10s timeout should be adequate
+const lookupTimeout = time.Second * 10
 const defaultRequestNumber = 0
 
 // dnshammerCmd represents the dnshammer command
@@ -57,7 +57,7 @@ func init() {
 	dnshammerCmd.Flags().StringP("server-address", "a", "127.0.0.1:53", "Address of the DNS server.")
 	dnshammerCmd.Flags().StringToStringP("rr-type", "r", map[string]string{},
 		`List of desired resource records mapped to the csv test data file.
-	Supported records are: A, CNAME, TXT, NS, MX, SRV. Accepted Format: A=Arecords.csv,CNAME=cnames.csv`)
+	Supported records are: A. Accepted Format: A=Arecords.csv`)
 	dnshammerCmd.Flags().IntP("request-number", "n", defaultRequestNumber,
 		"Number of request against the DNS server, if not provided all the entries in a given test data will be used.")
 	rootCmd.AddCommand(dnshammerCmd)
@@ -82,7 +82,7 @@ func do(addr string, n int, records map[string][]string) error {
 		if n != defaultRequestNumber && i == n {
 			break
 		}
-		ipResults, err := dnsLookup(addr, "udp", host)
+		ipResults, err := lookupARecord(addr, "udp", host)
 		if err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func compare(a, b []string) bool {
 	return true
 }
 
-func dnsLookup(addr, resolverProtocol, domain string) ([]net.IP, error) {
+func lookupARecord(addr, resolverProtocol, domain string) ([]net.IP, error) {
 	resolver := net.Resolver{
 		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 			dialer := net.Dialer{}
@@ -124,7 +124,7 @@ func dnsLookup(addr, resolverProtocol, domain string) ([]net.IP, error) {
 		},
 	}
 	logrus.Debugf("[DNS] lookup on %s [%s] -> %s", addr, resolverProtocol, domain)
-	ctx, cancel := context.WithTimeout(context.Background(), lookupTimeoutSec*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), lookupTimeout)
 	defer cancel()
 	return resolver.LookupIP(ctx, "ip4", domain)
 }

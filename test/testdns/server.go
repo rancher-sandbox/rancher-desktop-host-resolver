@@ -15,14 +15,8 @@ import (
 const truncateSize = 512
 
 type Handler struct {
-	truncate bool
+	Truncate bool
 	Arecords map[string][]string
-}
-
-func NewHandler(trucate bool) *Handler {
-	return &Handler{
-		truncate: trucate,
-	}
 }
 
 type Server struct {
@@ -64,7 +58,7 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		return
 	}
 	h.parseReply(msg)
-	if h.truncate {
+	if h.Truncate {
 		msg.Truncate(truncateSize)
 	}
 	if err := w.WriteMsg(msg); err != nil {

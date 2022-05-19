@@ -18,6 +18,7 @@ limitations under the License.
 package e2e
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -30,7 +31,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/helper" //nolint:ignore
+	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/helper"
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/test/testdns"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/windows"
@@ -46,13 +47,21 @@ var (
 	dnsPort        = "53"
 )
 
-func TestLookupARecords(t *testing.T) { //nolint:funlen
+func TestLookupARecords(t *testing.T) {
 	tmpDir := t.TempDir()
+
+	t.Log("Building host-resolver host binary")
+	err := buildBinaries("../../...", "windows", tmpDir)
+	require.NoError(t, err, "Failed building host-resolver.exe")
+
+	t.Log("Building host-resolver peer binary")
+	err = buildBinaries("../../...", "linux", tmpDir)
+	require.NoError(t, err, "Failed building host-resolver")
 
 	t.Logf("Dowloading %v wsl distro tarball", wslTarballName)
 	tarballPath := filepath.Join(tmpDir, wslTarballName)
 
-	err := downloadWSLTarball(tarballPath, wslTarballURL)
+	err = downloadFile(tarballPath, wslTarballURL)
 	require.NoErrorf(t, err, "Failed to download wsl distro tarball %v", wslTarballName)
 
 	t.Logf("Creating %v wsl distro", wslDistroName)
@@ -68,25 +77,24 @@ func TestLookupARecords(t *testing.T) { //nolint:funlen
 
 	defer func() {
 		t.Logf("Deleting %v wsl distro", wslDistroName)
-		_, err = cmdRunWithOutput("wsl", "--unregister", wslDistroName)
-		require.NoErrorf(t, err, "Failed to start distro %v", wslDistroName)
+		unregisterCmd := cmdExec("", "wsl", "--unregister", wslDistroName)
+		err := unregisterCmd.Run()
+		require.NoErrorf(t, err, "Failed to unregister distro %v", wslDistroName)
 	}()
 
 	// It takes a long time to start a new distro,
 	// 20 sec is a long time but that's actually how long
-	// it takes to start a distro without any flakeyness
+	// it takes to start a distro without any flakiness
 	timeout := time.Second * 20
 	tryInterval := time.Second * 2
 	err = confirm(func() bool {
-		// this is a way to figure out if the distro is running
-		// there is an issue with wsl --list --running output
-		// the buffer is not very useful for string search since it
-		// returns some sort of unicode.
+		// Run `wslpath` to see if the distribution is registered; this avoids
+		// parsing the output of `wsl --list` to avoid having to handle UTF-16.
 		out, err := cmdRunWithOutput("wsl", "--distribution", wslDistroName, "--exec", "/bin/wslpath", ".")
 		if err != nil {
 			return false
 		}
-		// remove all the weirdness from WSL output
+		// We expect `wslpath` to output a single dot for the given command.
 		return strings.TrimSpace(out) == "."
 	}, tryInterval, timeout)
 	require.NoErrorf(t, err, "Failed to check if %v wsl distro is running", wslDistroName)
@@ -94,32 +102,24 @@ func TestLookupARecords(t *testing.T) { //nolint:funlen
 	dnsInfs, err := helper.GetDNSInterfaces()
 	require.NoError(t, err, "Failed getting DNS addrs associated to interfaces")
 
-	// This is to cache all the exsisting DNS addresses
-	guidToDNSAddr, err := cacheExsitingDNSAddrs(dnsInfs)
-	require.NoError(t, err, "Failed caching exsisting DNS server addresses")
-
 	// restore the system DNS servers to the original state
-	defer restoreSystemDNS(t, dnsInfs, guidToDNSAddr)
+	defer restoreSystemDNS(t, dnsInfs)
 
-	t.Log("Updating network interfaces with test DNS server addr")
+	t.Log("Updating network interfaces with test DNS server address")
 	// Update the dns addrs to test server
-	updateSystemDNS(t, dnsInfs)
-
-	t.Log("Building host-resolver host binary")
-	err = buildBinaries("../../...", "windows", tmpDir)
-	require.NoError(t, err, "Failed building host-resolver.exe")
-
-	t.Log("Building host-resolver peer binary")
-	err = buildBinaries("../../...", "linux", tmpDir)
-	require.NoError(t, err, "Failed building host-resolver")
+	updateSystemDNS(t, testSrvAddr, dnsInfs)
 
 	aRecords := testdns.LoadRecords("../testdata/test-300.csv")
 
-	tcpHandler := testdns.NewHandler(false)
-	tcpHandler.Arecords = aRecords
+	tcpHandler := &testdns.Handler{
+		Truncate: false,
+		Arecords: aRecords,
+	}
 
-	udpHandler := testdns.NewHandler(true)
-	udpHandler.Arecords = aRecords
+	udpHandler := &testdns.Handler{
+		Truncate: true,
+		Arecords: aRecords,
+	}
 
 	testServer := testdns.Server{
 		Addr:       testSrvAddr,
@@ -159,17 +159,22 @@ func TestLookupARecords(t *testing.T) { //nolint:funlen
 	err = buildBinaries("../...", "linux", tmpDir)
 	require.NoError(t, err, "Failed building dnsHammer")
 
-	err = copyTestData("../testdata/test-300.csv", fmt.Sprintf("%s/test-300.csv", tmpDir))
+	err = copyFile("../testdata/test-300.csv", fmt.Sprintf("%s/test-300.csv", tmpDir))
 	require.NoError(t, err, "Failed copying test data file")
 
 	t.Log("Confirming host-resolver peer process is up")
 	peerCmdTimeout := time.Second * 10
-	confirm(func() bool { //nolint:errcheck // we don't care about the error
-		p, _ := os.FindProcess(peerCmd.Process.Pid)
+	err = confirm(func() bool {
+		p, err := os.FindProcess(peerCmd.Process.Pid)
+		if err != nil {
+			t.Logf("looking for host-resolver peer process PID: %v", err)
+			return false
+		}
 		return p.Pid == peerCmd.Process.Pid
 	}, tryInterval, peerCmdTimeout)
+	require.NoError(t, err, "failed to confirm host-resolver process is running")
 
-	t.Logf("Running dns hammer test process in wsl [%v]", wslDistroName)
+	t.Logf("Running DNS hammer test process in WSL distribution [%v]", wslDistroName)
 	dnsSrvAddr := net.JoinHostPort(testSrvAddr, dnsPort)
 	runTestCmd := cmdExec(
 		tmpDir,
@@ -187,8 +192,7 @@ func TestLookupARecords(t *testing.T) { //nolint:funlen
 // TODO (Nino-K): maybe this can be replaced by CI
 func buildBinaries(path, goos, tmpDir string) error {
 	buildCmd := exec.Command("go", "build", "-o", tmpDir, path)
-	buildCmd.Env = os.Environ()
-	buildCmd.Env = append(buildCmd.Env, fmt.Sprintf("GOOS=%s", goos))
+	buildCmd.Env = append(os.Environ(), fmt.Sprintf("GOOS=%s", goos))
 	buildCmd.Stdout = os.Stdout
 	buildCmd.Stderr = os.Stderr
 
@@ -196,7 +200,7 @@ func buildBinaries(path, goos, tmpDir string) error {
 }
 
 func cmdRunWithOutput(command string, args ...string) (string, error) {
-	var outBuf, errBuf strings.Builder
+	var outBuf, errBuf bytes.Buffer
 	cmd := exec.Command(command, args...)
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -217,28 +221,12 @@ func cmdExec(execDir, command string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-func copyTestData(src, dst string) error {
+func copyFile(src, dst string) error {
 	bytesRead, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(dst, bytesRead, 0600)
-}
-
-func cacheExsitingDNSAddrs(adapterAddrs []*winipcfg.IPAdapterAddresses) (map[string][]netip.Addr, error) {
-	guidToDNSAddrs := make(map[string][]netip.Addr)
-	for _, a := range adapterAddrs {
-		guid, err := a.LUID.GUID()
-		if err != nil {
-			return nil, err
-		}
-		dnsAddrs, err := a.LUID.DNS()
-		if err != nil {
-			return nil, err
-		}
-		guidToDNSAddrs[guid.String()] = dnsAddrs
-	}
-	return guidToDNSAddrs, nil
 }
 
 func confirm(command func() bool, interval, timeout time.Duration) error {
@@ -257,7 +245,7 @@ func confirm(command func() bool, interval, timeout time.Duration) error {
 	}
 }
 
-func updateSystemDNS(t *testing.T, dnsInfs []*winipcfg.IPAdapterAddresses) {
+func updateSystemDNS(t *testing.T, testSrvAddr string, dnsInfs []*winipcfg.IPAdapterAddresses) {
 	testDNSAddr := netip.MustParseAddr(testSrvAddr)
 	testDNSAddrIPv6 := netip.IPv6Unspecified()
 	for _, addr := range dnsInfs {
@@ -270,7 +258,7 @@ func updateSystemDNS(t *testing.T, dnsInfs []*winipcfg.IPAdapterAddresses) {
 	}
 }
 
-func restoreSystemDNS(t *testing.T, addrs []*winipcfg.IPAdapterAddresses, cachedAddrs map[string][]netip.Addr) {
+func restoreSystemDNS(t *testing.T, addrs []*winipcfg.IPAdapterAddresses) {
 	t.Log("Restoring DNS servers back to the original state")
 	for _, addr := range addrs {
 		err := addr.LUID.FlushDNS(windows.AF_INET)
@@ -280,7 +268,7 @@ func restoreSystemDNS(t *testing.T, addrs []*winipcfg.IPAdapterAddresses, cached
 	}
 }
 
-func downloadWSLTarball(path, url string) error {
+func downloadFile(path, url string) error {
 	resp, err := http.Get(url) // nolint:gosec // wsl-distro release URL
 	if err != nil {
 		return err
