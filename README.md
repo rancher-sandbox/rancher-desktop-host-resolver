@@ -53,5 +53,18 @@ You can run the tests in the container by running:
 ```bash
 docker build -t host-resolver:latest . && docker run --dns 127.0.0.1 -it host-resolver:latest
 ```
+## E2E Test
+
+You can run the e2e tests locally on a windows machine, please note that the e2e tests need to run
+as an administrator in an elevated terminal (e.g. Administrator: Windows PowerShell).
+
+```pwsh
+go test -v .\test\e2e\...
+```
+NOTE: the e2e test updates the DNS addresses on the machine's **primary** interface (e.g WiFi, eth0, etc.).
+The determination process assumes the addresses are dynamically configured through DHCP, this is to prevent
+any changes to other interfaces e.g. VirtualBox Host-Only Network, vEthernet (WSL). Once the test is terminated
+the interfaces and DNS changes are restored to the original state.
+
 **Note:** Run with `--dns` flag is required to override the DNS resolver used in the container.
 

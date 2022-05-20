@@ -6,12 +6,14 @@ require (
 	github.com/Microsoft/go-winio v0.5.2
 	github.com/linuxkit/virtsock v0.0.0-20220326174755-1c88ab3ae042
 	github.com/miekg/dns v1.1.48
-	github.com/rancher-sandbox/rancher-desktop/src/go/wsl-helper v0.0.0-20220413212628-c29c383efcda
+	github.com/rancher-sandbox/rancher-desktop/src/go/wsl-helper v0.0.0-20220506211516-e1785c5206d8
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0
+	github.com/spf13/viper v1.11.0
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
+	golang.org/x/sys v0.0.0-20220503163025-988cb79eb6c6
+	golang.zx2c4.com/wireguard/windows v0.5.3
 )
 
 require (
@@ -29,7 +31,6 @@ require (
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.11.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/net v0.0.0-20220412020605-290c469a71a5 // indirect
