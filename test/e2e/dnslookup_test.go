@@ -58,6 +58,13 @@ func TestLookupARecords(t *testing.T) {
 	err = buildBinaries("../../...", "linux", tmpDir)
 	require.NoError(t, err, "Failed building host-resolver")
 
+	t.Log("Building DNS hammer binary")
+	err = buildBinaries("../...", "linux", tmpDir)
+	require.NoError(t, err, "Failed building dnsHammer")
+
+	err = copyFile("../testdata/test-300.csv", filepath.Join(tmpDir, "test-300.csv"))
+	require.NoError(t, err, "Failed copying test data file")
+
 	t.Logf("Dowloading %v wsl distro tarball", wslTarballName)
 	tarballPath := filepath.Join(tmpDir, wslTarballName)
 
@@ -144,7 +151,7 @@ func TestLookupARecords(t *testing.T) {
 	}()
 
 	t.Log("Starting host-resolver host process")
-	resolverExecPath := fmt.Sprintf("%v/rancher-desktop-host-resolver.exe", tmpDir)
+	resolverExecPath := filepath.Join(tmpDir, "rancher-desktop-host-resolver.exe")
 	hostCmd := cmdExec(
 		tmpDir,
 		resolverExecPath, "vsock-host",
@@ -154,13 +161,6 @@ func TestLookupARecords(t *testing.T) {
 	defer func() {
 		_ = hostCmd.Process.Kill()
 	}()
-
-	t.Log("Building DNS hammer binary")
-	err = buildBinaries("../...", "linux", tmpDir)
-	require.NoError(t, err, "Failed building dnsHammer")
-
-	err = copyFile("../testdata/test-300.csv", fmt.Sprintf("%s/test-300.csv", tmpDir))
-	require.NoError(t, err, "Failed copying test data file")
 
 	t.Log("Confirming host-resolver peer process is up")
 	peerCmdTimeout := time.Second * 10
