@@ -44,7 +44,7 @@ func ListenTCP(addr string, port int) error {
 }
 
 func handleTCP(tConn net.Conn) {
-	vConn, err := vsock.Dial(vsock.CIDHost, HostListenPort)
+	vConn, err := vsock.Dial(vsock.CIDHost, HostTCPListenPort)
 	if err != nil {
 		log.Fatalf("handleTCP dial to vsock host: %v", err)
 	}
@@ -76,7 +76,7 @@ func ListenUDP(addr string, port int) error {
 }
 
 func handleUDP(uConn *net.UDPConn, addr *net.UDPAddr, b []byte) {
-	conn, err := vsock.Dial(vsock.CIDHost, HostListenPort)
+	conn, err := vsock.Dial(vsock.CIDHost, HostUDPListenPort)
 	if err != nil {
 		log.Fatalf("handleUDPConn dial to vsock host: %v", err)
 	}

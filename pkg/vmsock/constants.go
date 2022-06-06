@@ -15,7 +15,8 @@ limitations under the License.
 package vmsock
 
 const (
-	HostListenPort    = uint32(5995)
+	HostTCPListenPort = uint32(5995)
+	HostUDPListenPort = uint32(5996)
 	PeerHandshakePort = uint32(7878)
 	SeedPhrase        = "github.com/rancher-sandbox/rancher-desktop-host-resolver"
 )

@@ -22,12 +22,12 @@ import (
 	"github.com/linuxkit/virtsock/pkg/hvsock"
 )
 
-func Listen() (net.Listener, error) {
-	vmGUID, err := vmGUID()
-	if err != nil {
-		return nil, fmt.Errorf("Listen, could not determine VM GUID: %v", err)
-	}
-	svcPort, err := hvsock.GUIDFromString(winio.VsockServiceID(HostListenPort).String())
+func GetVMGUID() (hvsock.GUID, error) {
+	return vmGUID()
+}
+
+func Listen(vmGUID hvsock.GUID, vsockPort uint32) (net.Listener, error) {
+	svcPort, err := hvsock.GUIDFromString(winio.VsockServiceID(vsockPort).String())
 	if err != nil {
 		return nil, fmt.Errorf("Listen, could not parse Hyper-v service GUID: %v", err)
 	}

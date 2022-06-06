@@ -1,11 +1,7 @@
 package testdns
 
 import (
-	"encoding/csv"
-	"fmt"
 	"net"
-	"os"
-	"path/filepath"
 
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
@@ -15,8 +11,9 @@ import (
 const truncateSize = 512
 
 type Handler struct {
-	Truncate bool
-	Arecords map[string][]string
+	Truncate   bool
+	Arecords   map[string][]string
+	TXTrecords map[string][]string
 }
 
 type Server struct {
@@ -52,7 +49,6 @@ func (s *Server) Run() {
 func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	msg := new(dns.Msg)
 	msg.SetReply(r)
-	msg.Compress = false
 	// we might handle other OpCodes later
 	if r.Opcode != dns.OpcodeQuery {
 		return
@@ -68,59 +64,38 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 func (h *Handler) parseReply(msg *dns.Msg) {
 	logrus.Debugf("ServeDNS handling request: %v", msg.Question)
+	msg.Authoritative = true
 	for _, q := range msg.Question {
-		switch q.Qtype { //nolint:gocritic // this will have additional cases soon
+		domain := q.Name
+		switch q.Qtype {
 		case dns.TypeA:
-			msg.Authoritative = true
-			domain := q.Name
-			addresses, ok := h.Arecords[domain]
-			if ok {
+			if addresses, ok := h.Arecords[domain]; ok {
 				for _, addr := range addresses {
 					msg.Answer = append(msg.Answer, &dns.A{
 						Hdr: dns.RR_Header{
 							Name:   domain,
 							Rrtype: dns.TypeA,
 							Class:  dns.ClassINET,
-							Ttl:    60,
+							Ttl:    180,
 						},
 						A: net.ParseIP(addr),
 					})
 				}
 			}
-		}
-	}
-}
-
-func LoadRecords(p string) map[string][]string {
-	path := filepath.ToSlash(p)
-	f, err := os.Open(path)
-	if err != nil {
-		logrus.Panicf("opening file: %v err: %v", path, err)
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			logrus.Errorf("loadRecords closing file: %v", err)
-		}
-	}()
-
-	csvReader := csv.NewReader(f)
-	data, err := csvReader.ReadAll()
-	if err != nil {
-		logrus.Panicf("reading csv file: %v err: %v", path, err)
-	}
-
-	var domain string
-	records := make(map[string][]string)
-	for _, line := range data {
-		var ips = []string{}
-		for j, field := range line {
-			if j == 0 {
-				domain = fmt.Sprintf("%s.", field)
-			} else {
-				ips = append(ips, field)
+		case dns.TypeTXT:
+			if txtRecords, ok := h.TXTrecords[domain]; ok {
+				for _, txt := range txtRecords {
+					msg.Answer = append(msg.Answer, &dns.TXT{
+						Hdr: dns.RR_Header{
+							Name:   domain,
+							Rrtype: dns.TypeTXT,
+							Class:  dns.ClassINET,
+							Ttl:    180,
+						},
+						Txt: []string{txt},
+					})
+				}
 			}
-			records[domain] = ips
 		}
 	}
-	return records
 }

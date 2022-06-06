@@ -19,8 +19,10 @@ package e2e
 
 import (
 	"bytes"
+	"encoding/csv"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/netip"
@@ -34,6 +36,7 @@ import (
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/helper"
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/test/testdns"
 	"github.com/stretchr/testify/require"
+
 	"golang.org/x/sys/windows"
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
@@ -45,9 +48,10 @@ var (
 	wslTarballURL  = "https://github.com/rancher-sandbox/rancher-desktop-wsl-distro/releases/download/v0.21/distro-0.21.tar"
 	testSrvAddr    = "127.0.0.1"
 	dnsPort        = "53"
+	truncateLength = 512
 )
 
-func TestLookupARecords(t *testing.T) {
+func TestLookupTXTRecords(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	t.Log("Building host-resolver host binary")
@@ -62,8 +66,11 @@ func TestLookupARecords(t *testing.T) {
 	err = buildBinaries("../...", "linux", tmpDir)
 	require.NoError(t, err, "Failed building dnsHammer")
 
-	err = copyFile("../testdata/test-300.csv", filepath.Join(tmpDir, "test-300.csv"))
-	require.NoError(t, err, "Failed copying test data file")
+	t.Log("Generating DNS hammer test TXT records")
+	dnsHammerTxtRecords := "testTXT.csv"
+	txtRecords := generateTXTrecords(100)
+	err = writeDNSHammerFile(filepath.Join(tmpDir, dnsHammerTxtRecords), txtRecords)
+	require.NoError(t, err, "Failed generating test data")
 
 	t.Logf("Dowloading %v wsl distro tarball", wslTarballName)
 	tarballPath := filepath.Join(tmpDir, wslTarballName)
@@ -116,7 +123,147 @@ func TestLookupARecords(t *testing.T) {
 	// Update the dns addrs to test server
 	updateSystemDNS(t, testSrvAddr, dnsInfs)
 
-	aRecords := testdns.LoadRecords("../testdata/test-300.csv")
+	tcpHandler := &testdns.Handler{
+		Truncate:   false,
+		TXTrecords: txtRecords,
+	}
+
+	udpHandler := &testdns.Handler{
+		Truncate:   true,
+		TXTrecords: txtRecords,
+	}
+
+	testServer := testdns.Server{
+		Addr:       testSrvAddr,
+		TCPPort:    dnsPort,
+		UDPPort:    dnsPort,
+		TCPHandler: tcpHandler,
+		UDPHandler: udpHandler,
+	}
+	t.Log("Starting test upstream DNS server")
+	go testServer.Run()
+
+	t.Logf("Starting host-resolver peer process in wsl [%v]", wslDistroName)
+	peerCmd := cmdExec(
+		tmpDir,
+		"wsl", "--user", "root",
+		"--distribution", wslDistroName,
+		"--exec", "./rancher-desktop-host-resolver", "vsock-peer")
+	err = peerCmd.Start()
+	require.NoError(t, err, "Starting host-resolver peer process faild")
+	defer func() {
+		_ = peerCmd.Process.Kill()
+	}()
+
+	t.Log("Starting host-resolver host process")
+	resolverExecPath := filepath.Join(tmpDir, "rancher-desktop-host-resolver.exe")
+	hostCmd := cmdExec(
+		tmpDir,
+		resolverExecPath, "vsock-host",
+		"--upstream-servers", fmt.Sprintf("[%v]", testSrvAddr))
+	err = hostCmd.Start()
+	require.NoError(t, err, "Starting host-resolver host process faild")
+	defer func() {
+		_ = hostCmd.Process.Kill()
+	}()
+
+	t.Log("Confirming host-resolver peer process is up")
+	peerCmdTimeout := time.Second * 10
+	err = confirm(func() bool {
+		p, err := os.FindProcess(peerCmd.Process.Pid)
+		if err != nil {
+			t.Logf("looking for host-resolver peer process PID: %v", err)
+			return false
+		}
+		return p.Pid == peerCmd.Process.Pid
+	}, tryInterval, peerCmdTimeout)
+	require.NoError(t, err, "failed to confirm host-resolver process is running")
+
+	t.Logf("Running DNS hammer test process in WSL distribution [%v]", wslDistroName)
+	dnsSrvAddr := net.JoinHostPort(testSrvAddr, dnsPort)
+	runTestCmd := cmdExec(
+		tmpDir,
+		"wsl",
+		"--user", "root",
+		"--distribution", wslDistroName,
+		"--exec", "./test", "dnshammer",
+		"--server-address", dnsSrvAddr,
+		"--rr-type", fmt.Sprintf("TXT=%s", dnsHammerTxtRecords))
+	err = runTestCmd.Run()
+	require.NoError(t, err, "Running dns hammer against the peer process faild")
+	_ = runTestCmd.Process.Kill()
+}
+func TestLookupARecords(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	t.Log("Building host-resolver host binary")
+	err := buildBinaries("../../...", "windows", tmpDir)
+	require.NoError(t, err, "Failed building host-resolver.exe")
+
+	t.Log("Building host-resolver peer binary")
+	err = buildBinaries("../../...", "linux", tmpDir)
+	require.NoError(t, err, "Failed building host-resolver")
+
+	t.Log("Building DNS hammer binary")
+	err = buildBinaries("../...", "linux", tmpDir)
+	require.NoError(t, err, "Failed building dnsHammer")
+
+	t.Log("Generating DNS Hammper test A records")
+	dnsHammerArecords := "testA.csv"
+	aRecords := generateArecords(100)
+	err = writeDNSHammerFile(filepath.Join(tmpDir, dnsHammerArecords), aRecords)
+	require.NoError(t, err, "Failed generating test data")
+
+	t.Logf("Dowloading %v wsl distro tarball", wslTarballName)
+	tarballPath := filepath.Join(tmpDir, wslTarballName)
+
+	err = downloadFile(tarballPath, wslTarballURL)
+	require.NoErrorf(t, err, "Failed to download wsl distro tarball %v", wslTarballName)
+
+	t.Logf("Creating %v wsl distro", wslDistroName)
+	installCmd := cmdExec(
+		tmpDir,
+		"wsl",
+		"--import",
+		wslDistroName,
+		".",
+		tarballPath)
+	err = installCmd.Run()
+	require.NoErrorf(t, err, "Failed to install distro %v", wslDistroName)
+
+	defer func() {
+		t.Logf("Deleting %v wsl distro", wslDistroName)
+		unregisterCmd := cmdExec("", "wsl", "--unregister", wslDistroName)
+		err := unregisterCmd.Run()
+		require.NoErrorf(t, err, "Failed to unregister distro %v", wslDistroName)
+	}()
+
+	// It takes a long time to start a new distro,
+	// 20 sec is a long time but that's actually how long
+	// it takes to start a distro without any flakiness
+	timeout := time.Second * 20
+	tryInterval := time.Second * 2
+	err = confirm(func() bool {
+		// Run `wslpath` to see if the distribution is registered; this avoids
+		// parsing the output of `wsl --list` to avoid having to handle UTF-16.
+		out, err := cmdRunWithOutput("wsl", "--distribution", wslDistroName, "--exec", "/bin/wslpath", ".")
+		if err != nil {
+			return false
+		}
+		// We expect `wslpath` to output a single dot for the given command.
+		return strings.TrimSpace(out) == "."
+	}, tryInterval, timeout)
+	require.NoErrorf(t, err, "Failed to check if %v wsl distro is running", wslDistroName)
+
+	dnsInfs, err := helper.GetDNSInterfaces()
+	require.NoError(t, err, "Failed getting DNS addrs associated to interfaces")
+
+	// restore the system DNS servers to the original state
+	defer restoreSystemDNS(t, dnsInfs)
+
+	t.Log("Updating network interfaces with test DNS server address")
+	// Update the dns addrs to test server
+	updateSystemDNS(t, testSrvAddr, dnsInfs)
 
 	tcpHandler := &testdns.Handler{
 		Truncate: false,
@@ -183,7 +330,7 @@ func TestLookupARecords(t *testing.T) {
 		"--distribution", wslDistroName,
 		"--exec", "./test", "dnshammer",
 		"--server-address", dnsSrvAddr,
-		"--rr-type", "A=test-300.csv")
+		"--rr-type", fmt.Sprintf("A=%s", dnsHammerArecords))
 	err = runTestCmd.Run()
 	require.NoError(t, err, "Running dns hammer against the peer process faild")
 	_ = runTestCmd.Process.Kill()
@@ -284,4 +431,84 @@ func downloadFile(path, url string) error {
 		return err
 	}
 	return nil
+}
+
+func writeDNSHammerFile(path string, records map[string][]string) error {
+	csvFile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	csvWriter := csv.NewWriter(csvFile)
+	defer csvWriter.Flush()
+	var data [][]string
+	for k, v := range records {
+		row := append([]string{k}, v...)
+		data = append(data, row)
+	}
+	csvWriter.WriteAll(data)
+	return nil
+}
+
+func generateTXTrecords(n int) map[string][]string {
+	records := make(map[string][]string)
+	baseDomain := "host-resolver-e2e-test"
+	for i := 1; i <= n; i++ {
+		records[fmt.Sprintf("%s%d.test.", baseDomain, i)] = generateTXT(rand.Intn(3-1) + 1)
+	}
+	return records
+}
+
+func generateTXT(n int) (txt []string) {
+	var total int
+	for i := 1; i <= n; i++ {
+		record := randomTxt(rand.Intn(255-1) + 1)
+		total += len(record)
+		if total > truncateLength {
+			break
+		}
+		txt = append(txt, record)
+	}
+	return txt
+}
+
+func randomTxt(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
+func generateArecords(n int) map[string][]string {
+	records := make(map[string][]string)
+	baseDomain := "host-resolver-e2e-test"
+	for i := 1; i <= n; i++ {
+		records[fmt.Sprintf("%s-%d.test.", baseDomain, i)] = generateIPs(rand.Intn(10-1) + 1)
+	}
+	return records
+}
+
+func generateIPs(n int) (ips []string) {
+	for i := 1; i <= n; i++ {
+		ips = append(ips, ipv4Address())
+	}
+	return ips
+}
+
+func ipv4Address() string {
+	bit := func() int { return rand.Intn(256) }
+	var b strings.Builder
+	for i := 1; i <= 4; i++ {
+		if i == 1 && bit() == 0 {
+			fmt.Fprintf(&b, "%d.", 10)
+			continue
+		}
+		if i == 4 {
+			fmt.Fprintf(&b, "%d", bit())
+			break
+		}
+		fmt.Fprintf(&b, "%d.", bit())
+	}
+	return b.String()
 }
