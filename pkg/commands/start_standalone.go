@@ -45,7 +45,7 @@ func StartStandAloneServer(options *dns.ServerOptions) error {
 	log.Infof("Started Stand Alone srv %+v", srv)
 	defer srv.Shutdown()
 
-	trapSignal()
+	waitForExitSignal()
 	return nil
 }
 
@@ -77,7 +77,7 @@ func randomUDPPort() (int, error) {
 	return l.LocalAddr().(*net.UDPAddr).Port, nil
 }
 
-func trapSignal() {
+func waitForExitSignal() {
 	terminateCh := make(chan os.Signal, 1)
 	signal.Notify(terminateCh, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGINT)
 

@@ -19,6 +19,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// StartVsockHost attempts to start two AF_VSOCK listeners, one acting
+// for TCP (stream) and the other for UDP (datagram); it then waits for the
+// exit signal, if all fails it returns an appropriate error
 func StartVsockHost(ipv6 bool, hosts map[string]string, upstreamServers []string) error {
 	vmGUID, err := vmsock.GetVMGUID()
 	if err != nil {
@@ -60,6 +63,6 @@ func StartVsockHost(ipv6 bool, hosts map[string]string, upstreamServers []string
 	log.Infof("Started vsock-host AF_VSOCK datagram server on VM: %v listening on port: %v", vmGUID.String(), vmsock.HostUDPListenPort)
 	defer dgramSrv.Shutdown()
 
-	trapSignal()
+	waitForExitSignal()
 	return nil
 }

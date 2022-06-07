@@ -22,10 +22,6 @@ import (
 	"github.com/linuxkit/virtsock/pkg/hvsock"
 )
 
-func GetVMGUID() (hvsock.GUID, error) {
-	return vmGUID()
-}
-
 func Listen(vmGUID hvsock.GUID, vsockPort uint32) (net.Listener, error) {
 	svcPort, err := hvsock.GUIDFromString(winio.VsockServiceID(vsockPort).String())
 	if err != nil {
