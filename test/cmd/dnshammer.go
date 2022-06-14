@@ -14,18 +14,18 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
+	"encoding/csv"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"sort"
-	"time"
+	"strings"
 
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/test/testdns"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
-const lookupTimeout = time.Second * 10
 const defaultRequestNumber = 0
 
 // dnshammerCmd represents the dnshammer command
@@ -36,10 +36,6 @@ var dnshammerCmd = &cobra.Command{
 	Rancher Desktop Host Resovler stub DNS. It can handle specified number of records
 	along with resource records types and interval (backoff)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		addr, err := cmd.Flags().GetString("server-address")
-		if err != nil {
-			return err
-		}
 		n, err := cmd.Flags().GetInt("request-number")
 		if err != nil {
 			return err
@@ -48,26 +44,28 @@ var dnshammerCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return dnsQuery(addr, n, records)
+		return dnsQuery(n, records)
 	},
 }
 
 func init() {
-	dnshammerCmd.Flags().StringP("server-address", "a", "127.0.0.1:53", "Address of the DNS server.")
 	dnshammerCmd.Flags().StringToStringP("rr-type", "r", map[string]string{},
 		`List of desired resource records mapped to the csv test data file.
-	Supported records are: A. Accepted Format: A=Arecords.csv`)
+	Supported records are: A, TXT. Accepted Format: A=Arecords.csv,TXT=txtfile.csv`)
 	dnshammerCmd.Flags().IntP("request-number", "n", defaultRequestNumber,
 		"Number of request against the DNS server, if not provided all the entries in a given test data will be used.")
 	rootCmd.AddCommand(dnshammerCmd)
 }
 
-func dnsQuery(srvAddr string, n int, records map[string]string) error {
+func dnsQuery(n int, records map[string]string) error {
 	for rr, path := range records {
-		switch rr { //nolint:gocritic // this will have additional cases soon
+		switch rr {
 		case "A":
-			arecords := testdns.LoadRecords(path)
-			if err := do(srvAddr, n, arecords); err != nil {
+			if err := verifyResults(lookupARecord, compare, n, path); err != nil {
+				return err
+			}
+		case "TXT":
+			if err := verifyResults(net.LookupTXT, contains, n, path); err != nil {
 				return err
 			}
 		}
@@ -75,30 +73,38 @@ func dnsQuery(srvAddr string, n int, records map[string]string) error {
 	return nil
 }
 
-func do(addr string, n int, records map[string][]string) error {
+func verifyResults(lookup func(string) ([]string, error), assert func([]string, []string) bool, n int, path string) error {
+	records := loadRecords(path)
 	var i int
 	for host, ips := range records {
 		if n != defaultRequestNumber && i == n {
 			break
 		}
-		ipResults, err := lookupARecord(addr, "udp", host)
+		ipResults, err := lookup(host)
 		if err != nil {
 			return err
 		}
-		if !compare(ips, ipToString(ipResults)) {
+		if !assert(ips, ipResults) {
 			return fmt.Errorf("expected IP addresses to match, got: %v wanted: %v", ipResults, ips)
 		}
 		i++
 	}
-	logrus.Infof("Successfully tested %v records, against: %v", i, addr)
+	logrus.Infof("Successfully tested %v records", i)
 	return nil
 }
 
-func ipToString(ips []net.IP) (out []string) {
-	for _, ip := range ips {
-		out = append(out, ip.String())
+// contains checks that each element of `expected` is a substring of some element
+// of `actual`; multiple `expected` may be matched against a single `actual`
+// element.
+func contains(expected, actual []string) bool {
+	for _, t1 := range expected {
+		for _, t2 := range actual {
+			if !strings.Contains(t2, t1) {
+				return false
+			}
+		}
 	}
-	return out
+	return true
 }
 
 func compare(a, b []string) bool {
@@ -115,15 +121,38 @@ func compare(a, b []string) bool {
 	return true
 }
 
-func lookupARecord(addr, resolverProtocol, domain string) ([]net.IP, error) {
-	resolver := net.Resolver{
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			dialer := net.Dialer{}
-			return dialer.DialContext(ctx, resolverProtocol, addr)
-		},
+func lookupARecord(domain string) (out []string, err error) {
+	ips, err := net.LookupIP(domain)
+	for _, ip := range ips {
+		out = append(out, ip.String())
 	}
-	logrus.Debugf("[DNS] lookup on %s [%s] -> %s", addr, resolverProtocol, domain)
-	ctx, cancel := context.WithTimeout(context.Background(), lookupTimeout)
-	defer cancel()
-	return resolver.LookupIP(ctx, "ip4", domain)
+	return out, err
+}
+
+func loadRecords(p string) map[string][]string {
+	path := filepath.ToSlash(p)
+	f, err := os.Open(path)
+	if err != nil {
+		logrus.Panicf("opening file: %v err: %v", path, err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			logrus.Errorf("loadRecords closing file: %v", err)
+		}
+	}()
+
+	csvReader := csv.NewReader(f)
+	csvReader.FieldsPerRecord = -1 // disable expected fields per record
+	fileData, err := csvReader.ReadAll()
+	if err != nil {
+		logrus.Panicf("reading csv file: %v err: %v", path, err)
+	}
+
+	records := make(map[string][]string)
+	for _, line := range fileData {
+		if len(line) > 0 {
+			records[line[0]] = line[1:]
+		}
+	}
+	return records
 }

@@ -29,10 +29,10 @@ import (
 
 const timeoutSeconds = 10
 
-// vmGuid retrieves the GUID for a correct hyper-v VM (most likely WSL).
+// GetVMGUID retrieves the GUID for a correct hyper-v VM (most likely WSL).
 // It performs a handshake with a running vsock-peer in the WSL distro
 // to make sure we establish the AF_VSOCK connection with a right VM.
-func vmGUID() (hvsock.GUID, error) {
+func GetVMGUID() (hvsock.GUID, error) {
 	key, err := registry.OpenKey(
 		registry.LOCAL_MACHINE,
 		`SOFTWARE\Microsoft\Windows NT\CurrentVersion\HostComputeService\VolatileStore\ComputeSystem`,

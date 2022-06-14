@@ -19,24 +19,50 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// StartVsockHost attempts to start two AF_VSOCK listeners, one acting
+// for TCP (stream) and the other for UDP (datagram); it then waits for the
+// exit signal, if all fails it returns an appropriate error
 func StartVsockHost(ipv6 bool, hosts map[string]string, upstreamServers []string) error {
-	l, err := vmsock.Listen()
+	vmGUID, err := vmsock.GetVMGUID()
 	if err != nil {
 		return err
 	}
-	srv, err := dns.StartWithListener(
+	streamListener, err := vmsock.Listen(vmGUID, vmsock.HostTCPListenPort)
+	if err != nil {
+		return err
+	}
+	streamSrv, err := dns.StartWithListener(
 		&dns.ServerOptions{
 			IPv6:            ipv6,
 			StaticHosts:     hosts,
 			UpstreamServers: upstreamServers,
-			Listener:        l,
+			Listener:        streamListener,
+			TruncateReply:   false,
 		})
 	if err != nil {
 		return err
 	}
-	log.Infof("Started vsock-host srv %+v", srv)
-	defer srv.Shutdown()
+	log.Infof("Started vsock-host AF_VSOCK stream server on VM: %v listening on port: %v", vmGUID.String(), vmsock.HostTCPListenPort)
+	defer streamSrv.Shutdown()
 
-	run()
+	dgramListener, err := vmsock.Listen(vmGUID, vmsock.HostUDPListenPort)
+	if err != nil {
+		return err
+	}
+	dgramSrv, err := dns.StartWithListener(
+		&dns.ServerOptions{
+			IPv6:            ipv6,
+			StaticHosts:     hosts,
+			UpstreamServers: upstreamServers,
+			Listener:        dgramListener,
+			TruncateReply:   true,
+		})
+	if err != nil {
+		return err
+	}
+	log.Infof("Started vsock-host AF_VSOCK datagram server on VM: %v listening on port: %v", vmGUID.String(), vmsock.HostUDPListenPort)
+	defer dgramSrv.Shutdown()
+
+	waitForExitSignal()
 	return nil
 }

@@ -26,9 +26,11 @@ type ServerOptions struct {
 	StaticHosts     map[string]string
 	UpstreamServers []string
 	Listener        net.Listener
+	TruncateReply   bool
 }
 
 type Handler struct {
+	truncate     bool
 	clientConfig *dns.ClientConfig
 	clients      []*dns.Client
 	IPv6         bool
@@ -67,7 +69,7 @@ func newStaticClientConfig(ips []string) (*dns.ClientConfig, error) {
 	return dns.ClientConfigFromReader(r)
 }
 
-func newHandler(IPv6 bool, hosts map[string]string, upstreamServers []string) (dns.Handler, error) {
+func newHandler(truncate, IPv6 bool, hosts map[string]string, upstreamServers []string) (dns.Handler, error) {
 	var cc *dns.ClientConfig
 	var err error
 	if len(upstreamServers) == 0 {
@@ -101,6 +103,7 @@ func newHandler(IPv6 bool, hosts map[string]string, upstreamServers []string) (d
 		{Net: "tcp"},
 	}
 	h := &Handler{
+		truncate:     truncate,
 		clientConfig: cc,
 		clients:      clients,
 		IPv6:         IPv6,
@@ -260,7 +263,9 @@ func (h *Handler) handleQuery(w dns.ResponseWriter, req *dns.Msg) {
 		}
 	}
 	if handled {
-		reply.Truncate(truncateSize)
+		if h.truncate {
+			reply.Truncate(truncateSize)
+		}
 		_ = w.WriteMsg(&reply)
 		return
 	}
@@ -281,7 +286,9 @@ func (h *Handler) handleDefault(w dns.ResponseWriter, req *dns.Msg) {
 	}
 	var reply dns.Msg
 	reply.SetReply(req)
-	reply.Truncate(truncateSize)
+	if h.truncate {
+		reply.Truncate(truncateSize)
+	}
 	_ = w.WriteMsg(&reply)
 }
 
@@ -297,7 +304,7 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 // StartWithListener always starts the name server with a TCP listener
 // UDP PacketConn is not activated since the underlying AF_SOCK does not support UDP
 func StartWithListener(opts *ServerOptions) (*Server, error) {
-	h, err := newHandler(opts.IPv6, opts.StaticHosts, opts.UpstreamServers)
+	h, err := newHandler(opts.TruncateReply, opts.IPv6, opts.StaticHosts, opts.UpstreamServers)
 	if err != nil {
 		return nil, err
 	}
@@ -312,12 +319,13 @@ func StartWithListener(opts *ServerOptions) (*Server, error) {
 }
 
 func Start(opts *ServerOptions) (*Server, error) {
-	h, err := newHandler(opts.IPv6, opts.StaticHosts, opts.UpstreamServers)
-	if err != nil {
-		return nil, err
-	}
 	server := &Server{}
 	if opts.UDPPort > 0 {
+		// always enable reply truncate for UDP
+		h, err := newHandler(true, opts.IPv6, opts.StaticHosts, opts.UpstreamServers)
+		if err != nil {
+			return nil, err
+		}
 		addr := fmt.Sprintf("%s:%d", opts.Address, opts.UDPPort)
 		s := &dns.Server{Net: "udp", Addr: addr, Handler: h}
 		server.udp = s
@@ -328,6 +336,10 @@ func Start(opts *ServerOptions) (*Server, error) {
 		}()
 	}
 	if opts.TCPPort > 0 {
+		h, err := newHandler(false, opts.IPv6, opts.StaticHosts, opts.UpstreamServers)
+		if err != nil {
+			return nil, err
+		}
 		addr := fmt.Sprintf("%s:%d", opts.Address, opts.TCPPort)
 		s := &dns.Server{Net: "tcp", Addr: addr, Handler: h}
 		server.tcp = s
