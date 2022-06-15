@@ -47,7 +47,7 @@ func TestStartEnvVarArgs(t *testing.T) {
 		log.Fatal(err)
 	}
 	os.Setenv("BUILT-IN-HOSTS", string(b))
-	cmd := runHostResovler(t, []string{})
+	cmd := runHostResolver(t, []string{})
 	defer cmd.Process.Kill()
 
 	t.Logf("Checking for TCP port is running on %v", tport)
@@ -94,7 +94,7 @@ func TestStartEnvVarArgs(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	tport, uport := acquirePorts(t)
-	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tport, "-u", uport})
+	cmd := runHostResolver(t, []string{"-a", "127.0.0.1", "-t", tport, "-u", uport})
 	defer cmd.Process.Kill()
 
 	t.Logf("Checking for TCP port is running on %v", tport)
@@ -117,7 +117,7 @@ func TestStart(t *testing.T) {
 
 func TestQueryStaticHosts(t *testing.T) {
 	tport, uport := acquirePorts(t)
-	cmd := runHostResovler(t, []string{
+	cmd := runHostResolver(t, []string{
 		"-a", "127.0.0.1",
 		"-t", tport,
 		"-u", uport,
@@ -141,7 +141,7 @@ func TestQueryStaticHosts(t *testing.T) {
 
 func TestQueryUpstreamServer(t *testing.T) {
 	tport, uport := acquirePorts(t)
-	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tport, "-u", uport, "-s", "[8.8.8.8]"})
+	cmd := runHostResolver(t, []string{"-a", "127.0.0.1", "-t", tport, "-u", uport, "-s", "[8.8.8.8]"})
 	defer cmd.Process.Kill()
 
 	t.Logf("Resolving via upstream server on [TCP] --> %s", tport)
@@ -155,7 +155,7 @@ func TestQueryUpstreamServer(t *testing.T) {
 	require.NotEmpty(t, addrs, "Expect at least an address")
 }
 
-func runHostResovler(t *testing.T, args []string) *exec.Cmd {
+func runHostResolver(t *testing.T, args []string) *exec.Cmd {
 	// add run command to the tip
 	args = append([]string{"standalone"}, args...)
 

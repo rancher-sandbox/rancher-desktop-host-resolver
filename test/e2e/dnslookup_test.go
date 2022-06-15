@@ -43,32 +43,20 @@ import (
 
 var (
 	// for now we use this maybe this can be an env var from test
-	wslDistroName       = "host-resolver-e2e-test"
-	wslTarballName      = "distro-0.21.tar"
-	wslTarballURL       = "https://github.com/rancher-sandbox/rancher-desktop-wsl-distro/releases/download/v0.21/distro-0.21.tar"
-	testSrvAddr         = "127.0.0.1"
-	dnsPort             = "53"
-	dnsHammerArecords   = "testA.csv"
-	dnsHammerTxtRecords = "testTXT.csv"
-	tmpDir              string
+	wslDistroName         = "host-resolver-e2e-test"
+	wslTarballName        = "distro-0.21.tar"
+	wslTarballURL         = "https://github.com/rancher-sandbox/rancher-desktop-wsl-distro/releases/download/v0.21/distro-0.21.tar"
+	testSrvAddr           = "127.0.0.1"
+	dnsPort               = "53"
+	dnsHammerArecords     = "testA.csv"
+	dnsHammerTxtRecords   = "testTXT.csv"
+	dnsHammerCNAMERecords = "testCNAME.csv"
+	tmpDir                string
+	baseDomain            = "host-resolver-e2e-test"
 )
 
-func TestLookupTXTRecords(t *testing.T) {
-	t.Logf("Running DNS hammer test process in WSL distribution [%v]", wslDistroName)
-	runTestCmd := cmdExec(
-		tmpDir,
-		"wsl",
-		"--user", "root",
-		"--distribution", wslDistroName,
-		"--exec", "./test", "dnshammer",
-		"--rr-type", fmt.Sprintf("TXT=%s", dnsHammerTxtRecords))
-	err := runTestCmd.Run()
-	require.NoError(t, err, "Running dns hammer against the peer process faild")
-	// TODO (Nino-K): figure out why killing dns hammer fails
-	_ = runTestCmd.Process.Kill()
-}
 func TestLookupARecords(t *testing.T) {
-	t.Logf("Running DNS hammer test process in WSL distribution [%v]", wslDistroName)
+	t.Logf("Running DNS hammer A Record test process in WSL distribution [%v]", wslDistroName)
 	runTestCmd := cmdExec(
 		tmpDir,
 		"wsl",
@@ -77,8 +65,37 @@ func TestLookupARecords(t *testing.T) {
 		"--exec", "./test", "dnshammer",
 		"--rr-type", fmt.Sprintf("A=%s", dnsHammerArecords))
 	err := runTestCmd.Run()
-	require.NoError(t, err, "Running dns hammer against the peer process faild")
+	require.NoError(t, err, "Running dns hammer against the peer process failed")
 	// TODO (Nino-K): figure out why killing dns hammer fails
+	_ = runTestCmd.Process.Kill()
+}
+
+func TestLookupTXTRecords(t *testing.T) {
+	t.Logf("Running DNS hammer TXT test process in WSL distribution [%v]", wslDistroName)
+	runTestCmd := cmdExec(
+		tmpDir,
+		"wsl",
+		"--user", "root",
+		"--distribution", wslDistroName,
+		"--exec", "./test", "dnshammer",
+		"--rr-type", fmt.Sprintf("TXT=%s", dnsHammerTxtRecords))
+	err := runTestCmd.Run()
+	require.NoError(t, err, "Running dns hammer against the peer process failed")
+	// TODO (Nino-K): figure out why killing dns hammer fails
+	_ = runTestCmd.Process.Kill()
+}
+
+func TestLookupCNAMERecords(t *testing.T) {
+	t.Logf("Running DNS hammer CNAME test process in WSL distribution [%v]", wslDistroName)
+	runTestCmd := cmdExec(
+		tmpDir,
+		"wsl",
+		"--user", "root",
+		"--distribution", wslDistroName,
+		"--exec", "./test", "dnshammer",
+		"--rr-type", fmt.Sprintf("CNAME=%s", dnsHammerCNAMERecords))
+	err := runTestCmd.Run()
+	require.NoError(t, err, "Running dns hammer against the peer process failed")
 	_ = runTestCmd.Process.Kill()
 }
 
@@ -98,14 +115,19 @@ func TestMain(m *testing.M) {
 	requireNoErrorf(err, "Failed building dnsHammer: %v", err)
 
 	logrus.Info("Generating DNS hammer test A records")
-	aRecords := generateArecords(100)
+	aRecords := generateArecords(100, baseDomain)
 	err = writeDNSHammerFile(filepath.Join(tmpDir, dnsHammerArecords), aRecords)
-	requireNoErrorf(err, "Failed generating test data: %v", err)
+	requireNoErrorf(err, "Failed generating A record test data: %v", err)
 
 	logrus.Info("Generating DNS hammer test TXT records")
-	txtRecords := generateTXTrecords(100)
+	txtRecords := generateTXTrecords(100, baseDomain)
 	err = writeDNSHammerFile(filepath.Join(tmpDir, dnsHammerTxtRecords), txtRecords)
-	requireNoErrorf(err, "Failed generating test data")
+	requireNoErrorf(err, "Failed generating TXT record test data")
+
+	logrus.Info("Generating DNS hammer test CNAME records")
+	cnameRecords := generateCNAMErecords(100, baseDomain)
+	err = writeDNSHammerFile(filepath.Join(tmpDir, dnsHammerCNAMERecords), cnameRecords)
+	requireNoErrorf(err, "Failed generating CNAME test data")
 
 	logrus.Infof("Dowloading %v wsl distro tarball", wslTarballName)
 	tarballPath := filepath.Join(tmpDir, wslTarballName)
@@ -149,15 +171,17 @@ func TestMain(m *testing.M) {
 	updateSystemDNS(testSrvAddr, dnsInfs)
 
 	tcpHandler := &testdns.Handler{
-		Truncate:   false,
-		Arecords:   aRecords,
-		TXTrecords: txtRecords,
+		Truncate:     false,
+		Arecords:     aRecords,
+		TXTrecords:   txtRecords,
+		CNAMErecords: cnameRecords,
 	}
 
 	udpHandler := &testdns.Handler{
-		Truncate:   true,
-		Arecords:   aRecords,
-		TXTrecords: txtRecords,
+		Truncate:     true,
+		Arecords:     aRecords,
+		TXTrecords:   txtRecords,
+		CNAMErecords: cnameRecords,
 	}
 
 	testServer := testdns.Server{
@@ -322,7 +346,7 @@ func writeDNSHammerFile(path string, records map[string][]string) error {
 		return err
 	}
 	csvWriter := csv.NewWriter(csvFile)
-	defer csvWriter.Flush()
+
 	var data [][]string
 	for k, v := range records {
 		row := append([]string{k}, v...)
@@ -331,11 +355,20 @@ func writeDNSHammerFile(path string, records map[string][]string) error {
 	return csvWriter.WriteAll(data)
 }
 
-func generateTXTrecords(n int) map[string][]string {
+func generateCNAMErecords(n int, domain string) map[string][]string {
 	records := make(map[string][]string)
-	baseDomain := "host-resolver-e2e-test"
 	for i := 1; i <= n; i++ {
-		records[fmt.Sprintf("%s%d.test.", baseDomain, i)] = generateTXT(rand.Intn(5-1) + 1)
+		subDomain := strings.ToLower(randomTxt(rand.Intn(10-1) + 1))
+		domain := fmt.Sprintf("%s-%d.test.", baseDomain, i)
+		records[subDomain+"."+domain] = []string{domain}
+	}
+	return records
+}
+
+func generateTXTrecords(n int, domain string) map[string][]string {
+	records := make(map[string][]string)
+	for i := 1; i <= n; i++ {
+		records[fmt.Sprintf("%s-%d.test.", baseDomain, i)] = generateTXT(rand.Intn(5-1) + 1)
 	}
 	return records
 }
@@ -357,9 +390,8 @@ func randomTxt(n int) string {
 	return string(b)
 }
 
-func generateArecords(n int) map[string][]string {
+func generateArecords(n int, domain string) map[string][]string {
 	records := make(map[string][]string)
-	baseDomain := "host-resolver-e2e-test"
 	for i := 1; i <= n; i++ {
 		records[fmt.Sprintf("%s-%d.test.", baseDomain, i)] = generateIPs(rand.Intn(10-1) + 1)
 	}
