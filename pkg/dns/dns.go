@@ -46,6 +46,9 @@ type Server struct {
 	tcp *dns.Server
 }
 
+// NewHandler creates a client configuration from HandlerOptions. Note, on Windows
+// it will fallback to default fallback IP addresses, however, on other platforms it
+// will attempt to create a client config from the content of /etc/resolv.conf.
 func NewHandler(opts HandlerOptions) (dns.Handler, error) {
 	var cc *dns.ClientConfig
 	var err error
