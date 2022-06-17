@@ -36,12 +36,14 @@ with the underlying DNS server. Use this mode for testing, debugging and benchma
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return commands.StartStandAloneServer(&dns.ServerOptions{
-				Address:         runViper.GetString("listen-address"),
-				UDPPort:         runViper.GetInt("udp-port"),
-				TCPPort:         runViper.GetInt("tcp-port"),
-				IPv6:            runViper.GetBool("ipv6"),
-				StaticHosts:     runViper.GetStringMapString("built-in-hosts"),
-				UpstreamServers: runViper.GetStringSlice("upstream-servers"),
+				Address: runViper.GetString("listen-address"),
+				UDPPort: runViper.GetInt("udp-port"),
+				TCPPort: runViper.GetInt("tcp-port"),
+				HandlerOptions: dns.HandlerOptions{
+					IPv6:            runViper.GetBool("ipv6"),
+					StaticHosts:     runViper.GetStringMapString("built-in-hosts"),
+					UpstreamServers: runViper.GetStringSlice("upstream-servers"),
+				},
 			})
 		},
 	}

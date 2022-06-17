@@ -20,7 +20,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
@@ -66,7 +65,7 @@ func dnsQuery(n int, records map[string]string) error {
 				return err
 			}
 		case "TXT":
-			if err := verifyResults(net.LookupTXT, contains, n, path); err != nil {
+			if err := verifyResults(net.LookupTXT, compare, n, path); err != nil {
 				return err
 			}
 		case "CNAME":
@@ -98,20 +97,6 @@ func verifyResults(lookup func(string) ([]string, error), assert func([]string, 
 	return nil
 }
 
-// contains checks that each element of `expected` is a substring of some element
-// of `actual`; multiple `expected` may be matched against a single `actual`
-// element.
-func contains(expected, actual []string) bool {
-	for _, t1 := range expected {
-		for _, t2 := range actual {
-			if !strings.Contains(t2, t1) {
-				return false
-			}
-		}
-	}
-	return true
-}
-
 func compare(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -126,8 +111,9 @@ func compare(a, b []string) bool {
 	return true
 }
 
-func lookupCNAMERecord(domain string) (out []string, err error) {
+func lookupCNAMERecord(domain string) ([]string, error) {
 	// TODO (Nino-K): Switch back to the net.LookupCNAME once this is addressed: https://github.com/golang/go/issues/50101
+	var out []string
 	c := dns.Client{}
 	m := dns.Msg{}
 	m.SetQuestion(domain, dns.TypeCNAME)
@@ -142,7 +128,8 @@ func lookupCNAMERecord(domain string) (out []string, err error) {
 	return out, err
 }
 
-func lookupARecord(domain string) (out []string, err error) {
+func lookupARecord(domain string) ([]string, error) {
+	var out []string
 	ips, err := net.LookupIP(domain)
 	for _, ip := range ips {
 		out = append(out, ip.String())

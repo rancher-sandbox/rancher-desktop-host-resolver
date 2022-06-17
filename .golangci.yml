@@ -117,6 +117,8 @@ issues:
       linters:
         - funlen
         - gocyclo
+        - gocritic
+        - gomnd
     - # Allow upstream code that doesn't conform
       path: pkg/dns/dns.go
       linters:
