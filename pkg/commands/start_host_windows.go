@@ -14,9 +14,12 @@ limitations under the License.
 package commands
 
 import (
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
+	"github.com/linuxkit/virtsock/pkg/hvsock"
+	"github.com/miekg/dns"
+	"github.com/sirupsen/logrus"
+
+	rddns "github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/vmsock"
-	log "github.com/sirupsen/logrus"
 )
 
 // StartVsockHost attempts to start two AF_VSOCK listeners, one acting
@@ -27,42 +30,60 @@ func StartVsockHost(ipv6 bool, hosts map[string]string, upstreamServers []string
 	if err != nil {
 		return err
 	}
-	streamListener, err := vmsock.Listen(vmGUID, vmsock.HostTCPListenPort)
-	if err != nil {
-		return err
-	}
-	streamSrv, err := dns.StartWithListener(
-		&dns.ServerOptions{
-			IPv6:            ipv6,
-			StaticHosts:     hosts,
-			UpstreamServers: upstreamServers,
-			Listener:        streamListener,
-			TruncateReply:   false,
-		})
-	if err != nil {
-		return err
-	}
-	log.Infof("Started vsock-host AF_VSOCK stream server on VM: %v listening on port: %v", vmGUID.String(), vmsock.HostTCPListenPort)
-	defer streamSrv.Shutdown()
 
-	dgramListener, err := vmsock.Listen(vmGUID, vmsock.HostUDPListenPort)
-	if err != nil {
-		return err
+	tcpOpts := rddns.HandlerOptions{
+		IPv6:            ipv6,
+		StaticHosts:     hosts,
+		UpstreamServers: upstreamServers,
+		TruncateReply:   false,
 	}
-	dgramSrv, err := dns.StartWithListener(
-		&dns.ServerOptions{
-			IPv6:            ipv6,
-			StaticHosts:     hosts,
-			UpstreamServers: upstreamServers,
-			Listener:        dgramListener,
-			TruncateReply:   true,
-		})
+	tcpServer, err := startDNSServer(vmGUID, vmsock.HostTCPListenPort, tcpOpts)
 	if err != nil {
-		return err
+		logrus.Panicf("StartVsockHost failed to start TCP DNS server: %v", err)
 	}
-	log.Infof("Started vsock-host AF_VSOCK datagram server on VM: %v listening on port: %v", vmGUID.String(), vmsock.HostUDPListenPort)
-	defer dgramSrv.Shutdown()
+
+	logrus.Infof("Started vsock-host AF_VSOCK stream server on VM: %v listening on port: %v", vmGUID.String(), vmsock.HostTCPListenPort)
+	defer func() {
+		if err := tcpServer.Shutdown(); err != nil {
+			logrus.Errorf("Shutting down TCP server failed: %v", err)
+		}
+	}()
+
+	udpOpts := rddns.HandlerOptions{
+		IPv6:            ipv6,
+		StaticHosts:     hosts,
+		UpstreamServers: upstreamServers,
+		TruncateReply:   true,
+	}
+	udpServer, err := startDNSServer(vmGUID, vmsock.HostUDPListenPort, udpOpts)
+	if err != nil {
+		logrus.Panicf("StartVsockHost failed to start UDP DNS server: %v", err)
+	}
+	logrus.Infof("Started vsock-host AF_VSOCK datagram server on VM: %v listening on port: %v", vmGUID.String(), vmsock.HostUDPListenPort)
+	defer func() {
+		if err := udpServer.Shutdown(); err != nil {
+			logrus.Errorf("Shutting down UDP server failed: %v", err)
+		}
+	}()
 
 	waitForExitSignal()
 	return nil
+}
+
+func startDNSServer(vmGUID hvsock.GUID, vsockPort uint32, opts rddns.HandlerOptions) (*dns.Server, error) {
+	listner, err := vmsock.Listen(vmGUID, vsockPort)
+	if err != nil {
+		return nil, err
+	}
+	handler, err := rddns.NewHandler(opts)
+	if err != nil {
+		return nil, err
+	}
+	server := &dns.Server{Net: "tcp", Listener: listner, Handler: handler}
+	go func() {
+		if e := server.ActivateAndServe(); e != nil {
+			panic(e)
+		}
+	}()
+	return server, nil
 }

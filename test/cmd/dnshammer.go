@@ -20,8 +20,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
+	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -51,7 +51,7 @@ var dnshammerCmd = &cobra.Command{
 func init() {
 	dnshammerCmd.Flags().StringToStringP("rr-type", "r", map[string]string{},
 		`List of desired resource records mapped to the csv test data file.
-	Supported records are: A, TXT. Accepted Format: A=Arecords.csv,TXT=txtfile.csv`)
+	Supported records are: A, TXT and CNAME. Accepted Format: A=Arecords.csv,TXT=txtfile.csv,CNAME=cname.csv`)
 	dnshammerCmd.Flags().IntP("request-number", "n", defaultRequestNumber,
 		"Number of request against the DNS server, if not provided all the entries in a given test data will be used.")
 	rootCmd.AddCommand(dnshammerCmd)
@@ -65,7 +65,11 @@ func dnsQuery(n int, records map[string]string) error {
 				return err
 			}
 		case "TXT":
-			if err := verifyResults(net.LookupTXT, contains, n, path); err != nil {
+			if err := verifyResults(net.LookupTXT, compare, n, path); err != nil {
+				return err
+			}
+		case "CNAME":
+			if err := verifyResults(lookupCNAMERecord, compare, n, path); err != nil {
 				return err
 			}
 		}
@@ -76,35 +80,21 @@ func dnsQuery(n int, records map[string]string) error {
 func verifyResults(lookup func(string) ([]string, error), assert func([]string, []string) bool, n int, path string) error {
 	records := loadRecords(path)
 	var i int
-	for host, ips := range records {
+	for k, v := range records {
 		if n != defaultRequestNumber && i == n {
 			break
 		}
-		ipResults, err := lookup(host)
+		results, err := lookup(k)
 		if err != nil {
 			return err
 		}
-		if !assert(ips, ipResults) {
-			return fmt.Errorf("expected IP addresses to match, got: %v wanted: %v", ipResults, ips)
+		if !assert(v, results) {
+			return fmt.Errorf("expected to match, got: %v wanted: %v", results, v)
 		}
 		i++
 	}
 	logrus.Infof("Successfully tested %v records", i)
 	return nil
-}
-
-// contains checks that each element of `expected` is a substring of some element
-// of `actual`; multiple `expected` may be matched against a single `actual`
-// element.
-func contains(expected, actual []string) bool {
-	for _, t1 := range expected {
-		for _, t2 := range actual {
-			if !strings.Contains(t2, t1) {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 func compare(a, b []string) bool {
@@ -121,7 +111,25 @@ func compare(a, b []string) bool {
 	return true
 }
 
-func lookupARecord(domain string) (out []string, err error) {
+func lookupCNAMERecord(domain string) ([]string, error) {
+	// TODO (Nino-K): Switch back to the net.LookupCNAME once this is addressed: https://github.com/golang/go/issues/50101
+	var out []string
+	c := dns.Client{}
+	m := dns.Msg{}
+	m.SetQuestion(domain, dns.TypeCNAME)
+	r, _, err := c.Exchange(&m, "127.0.0.1:53")
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range r.Answer {
+		cname := a.(*dns.CNAME)
+		out = append(out, cname.Target)
+	}
+	return out, err
+}
+
+func lookupARecord(domain string) ([]string, error) {
+	var out []string
 	ips, err := net.LookupIP(domain)
 	for _, ip := range ips {
 		out = append(out, ip.String())

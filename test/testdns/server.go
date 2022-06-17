@@ -11,9 +11,10 @@ import (
 const truncateSize = 512
 
 type Handler struct {
-	Truncate   bool
-	Arecords   map[string][]string
-	TXTrecords map[string][]string
+	Truncate     bool
+	Arecords     map[string][]string
+	TXTrecords   map[string][]string
+	CNAMErecords map[string][]string
 }
 
 type Server struct {
@@ -95,6 +96,18 @@ func (h *Handler) parseReply(msg *dns.Msg) {
 						Txt: []string{txt},
 					})
 				}
+			}
+		case dns.TypeCNAME:
+			if host, ok := h.CNAMErecords[domain]; ok {
+				msg.Answer = append(msg.Answer, &dns.CNAME{
+					Hdr: dns.RR_Header{
+						Name:   domain,
+						Rrtype: dns.TypeCNAME,
+						Class:  dns.ClassINET,
+						Ttl:    180,
+					},
+					Target: host[0], // there should only be one host
+				})
 			}
 		}
 	}

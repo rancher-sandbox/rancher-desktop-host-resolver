@@ -38,7 +38,7 @@ func StartStandAloneServer(options *dns.ServerOptions) error {
 			return err
 		}
 	}
-	srv, err := dns.Start(options)
+	srv, err := dns.Start(*options)
 	if err != nil {
 		return err
 	}
