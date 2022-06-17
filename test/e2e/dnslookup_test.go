@@ -299,7 +299,7 @@ func restoreSystemDNS(addrs []*winipcfg.IPAdapterAddresses) {
 }
 
 func downloadFile(path, url string) error {
-	resp, err := http.Get(url) // nolint:gosec // wsl-distro release URL
+	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
@@ -335,14 +335,14 @@ func generateTXTrecords(n int) map[string][]string {
 	records := make(map[string][]string)
 	baseDomain := "host-resolver-e2e-test"
 	for i := 1; i <= n; i++ {
-		records[fmt.Sprintf("%s%d.test.", baseDomain, i)] = generateTXT(rand.Intn(5-1) + 1) // nolint: gosec
+		records[fmt.Sprintf("%s%d.test.", baseDomain, i)] = generateTXT(rand.Intn(5-1) + 1)
 	}
 	return records
 }
 
 func generateTXT(n int) (txt []string) {
 	for i := 1; i <= n; i++ {
-		record := randomTxt(rand.Intn(255-1) + 1) // nolint: gosec
+		record := randomTxt(rand.Intn(255-1) + 1)
 		txt = append(txt, record)
 	}
 	return txt
@@ -352,7 +352,7 @@ func randomTxt(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	b := make([]byte, n)
 	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))] // nolint: gosec
+		b[i] = letters[rand.Intn(len(letters))]
 	}
 	return string(b)
 }
@@ -361,7 +361,7 @@ func generateArecords(n int) map[string][]string {
 	records := make(map[string][]string)
 	baseDomain := "host-resolver-e2e-test"
 	for i := 1; i <= n; i++ {
-		records[fmt.Sprintf("%s-%d.test.", baseDomain, i)] = generateIPs(rand.Intn(10-1) + 1) // nolint: gosec
+		records[fmt.Sprintf("%s-%d.test.", baseDomain, i)] = generateIPs(rand.Intn(10-1) + 1)
 	}
 	return records
 }
@@ -374,7 +374,7 @@ func generateIPs(n int) (ips []string) {
 }
 
 func ipv4Address() string {
-	bit := func() int { return rand.Intn(256) } // nolint: gosec
+	bit := func() int { return rand.Intn(256) }
 	var b strings.Builder
 	for i := 1; i <= 4; i++ {
 		if i == 1 && bit() == 0 {

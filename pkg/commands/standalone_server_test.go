@@ -48,7 +48,7 @@ func TestStartEnvVarArgs(t *testing.T) {
 	}
 	os.Setenv("BUILT-IN-HOSTS", string(b))
 	cmd := runHostResovler(t, []string{})
-	defer cmd.Process.Kill() //nolint:errcheck
+	defer cmd.Process.Kill()
 
 	t.Logf("Checking for TCP port is running on %v", tport)
 	tcpListener, err := net.Listen("tcp", fmt.Sprintf(":%s", tport))
@@ -95,7 +95,7 @@ func TestStartEnvVarArgs(t *testing.T) {
 func TestStart(t *testing.T) {
 	tport, uport := acquirePorts(t)
 	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tport, "-u", uport})
-	defer cmd.Process.Kill() //nolint:errcheck
+	defer cmd.Process.Kill()
 
 	t.Logf("Checking for TCP port is running on %v", tport)
 	tcpListener, err := net.Listen("tcp", fmt.Sprintf(":%s", tport))
@@ -122,7 +122,7 @@ func TestQueryStaticHosts(t *testing.T) {
 		"-t", tport,
 		"-u", uport,
 		"-c", "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222"})
-	defer cmd.Process.Kill() //nolint:errcheck
+	defer cmd.Process.Kill()
 
 	t.Logf("Checking for TCP port on %s", tport)
 	addrs, err := dnsLookup(t, tport, "tcp", "host.rd.test")
@@ -142,7 +142,7 @@ func TestQueryStaticHosts(t *testing.T) {
 func TestQueryUpstreamServer(t *testing.T) {
 	tport, uport := acquirePorts(t)
 	cmd := runHostResovler(t, []string{"-a", "127.0.0.1", "-t", tport, "-u", uport, "-s", "[8.8.8.8]"})
-	defer cmd.Process.Kill() //nolint:errcheck
+	defer cmd.Process.Kill()
 
 	t.Logf("Resolving via upstream server on [TCP] --> %s", tport)
 	addrs, err := dnsLookup(t, tport, "tcp", "google.ca")
@@ -191,7 +191,6 @@ func dnsLookup(t *testing.T, resolverPort, resolverProtocol, domain string) ([]n
 	return resolver.LookupIP(ctx, "ip4", domain)
 }
 
-// nolint: gocritic // unamedresult
 func acquirePorts(t *testing.T) (string, string) {
 	tport, err := randomTCPPort()
 	require.NoError(t, err)
