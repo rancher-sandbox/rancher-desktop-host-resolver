@@ -23,7 +23,7 @@ import (
 
 	"github.com/Microsoft/go-winio"
 	"github.com/linuxkit/virtsock/pkg/hvsock"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -57,7 +57,7 @@ func GetVMGUID() (hvsock.GUID, error) {
 	for _, name := range names {
 		vmGUID, err := hvsock.GUIDFromString(name)
 		if err != nil {
-			log.Errorf("invalid VM name: [%s], err: %v", name, err)
+			logrus.Errorf("invalid VM name: [%s], err: %v", name, err)
 			continue
 		}
 		go handshake(vmGUID, found, done)
@@ -84,7 +84,7 @@ func tryFindGUID(found chan hvsock.GUID) (hvsock.GUID, error) {
 func handshake(vmGUID hvsock.GUID, found chan<- hvsock.GUID, done <-chan bool) {
 	svcPort, err := hvsock.GUIDFromString(winio.VsockServiceID(PeerHandshakePort).String())
 	if err != nil {
-		log.Errorf("hostHandshake parsing svc port: %v", err)
+		logrus.Errorf("hostHandshake parsing svc port: %v", err)
 	}
 	addr := hvsock.Addr{
 		VMID:      vmGUID,
@@ -96,27 +96,29 @@ func handshake(vmGUID hvsock.GUID, found chan<- hvsock.GUID, done <-chan bool) {
 	for {
 		select {
 		case <-done:
-			log.Infof("attempt to handshake with [%s], goroutine is terminated", vmGUID.String())
+			logrus.Infof("attempt to handshake with [%s], goroutine is terminated", vmGUID.String())
 			return
 		case <-attempInterval.C:
 			conn, err := hvsock.Dial(addr)
 			if err != nil {
 				attempt++
-				log.Debugf("handshake attempt[%v] to dial into VM, looking for vsock-peer", attempt)
+				logrus.Debugf("handshake attempt[%v] to dial into VM, looking for vsock-peer", attempt)
 				continue
 			}
 			seed, err := readSeed(conn)
 			if err != nil {
-				log.Errorf("hosthandshake attempt to read the seed: %v", err)
+				logrus.Errorf("hosthandshake attempt to read the seed: %v", err)
 			}
 			if err := conn.Close(); err != nil {
-				log.Errorf("hosthandshake closing connection: %v", err)
+				logrus.Errorf("hosthandshake closing connection: %v", err)
 			}
 			if seed == SeedPhrase {
-				log.Infof("successfully estabilished a handshake with a peer: %s", vmGUID.String())
+				logrus.Infof("successfully estabilished a handshake with a peer: %s", vmGUID.String())
 				found <- vmGUID
 				return
 			}
+			logrus.Infof("hosthandshake failed to match the seed phrase with a peer running in: %s", vmGUID.String())
+			return
 		}
 	}
 }
