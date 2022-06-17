@@ -112,10 +112,10 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 func Start(opts ServerOptions) (*Server, error) {
 	server := &Server{}
 	if opts.UDPPort > 0 {
-		udpOptions := opts
+		udpOpts := opts
 		// always enable reply truncate for UDP
-		udpOptions.TruncateReply = true
-		h, err := NewHandler(opts.HandlerOptions)
+		udpOpts.TruncateReply = true
+		h, err := NewHandler(udpOpts.HandlerOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +132,7 @@ func Start(opts ServerOptions) (*Server, error) {
 	if opts.TCPPort > 0 {
 		tcpOpts := opts
 		tcpOpts.TruncateReply = false
-		h, err := NewHandler(opts.HandlerOptions)
+		h, err := NewHandler(tcpOpts.HandlerOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -360,7 +360,7 @@ func (h *Handler) handleDefault(w dns.ResponseWriter, req *dns.Msg) {
 			addr := fmt.Sprintf("%s:%s", srv, h.clientConfig.Port)
 			reply, _, err := client.Exchange(req, addr)
 			if err != nil {
-				logrus.Errorf("handleDefault failed to perform a synchronous query with upstream [%v]: %v", addr, err)
+				logrus.Debugf("handleDefault failed to perform a synchronous query with upstream [%v]: %v", addr, err)
 				continue
 			}
 			if h.truncate {
@@ -368,7 +368,7 @@ func (h *Handler) handleDefault(w dns.ResponseWriter, req *dns.Msg) {
 				reply.Truncate(truncateSize)
 			}
 			if err = w.WriteMsg(reply); err != nil {
-				logrus.Errorf("handleDefault failed writing DNS reply to [%v]: %v", addr, err)
+				logrus.Debugf("handleDefault failed writing DNS reply to [%v]: %v", addr, err)
 			}
 			return
 		}
@@ -380,7 +380,7 @@ func (h *Handler) handleDefault(w dns.ResponseWriter, req *dns.Msg) {
 		reply.Truncate(truncateSize)
 	}
 	if err := w.WriteMsg(&reply); err != nil {
-		logrus.Errorf("handleDefault failed writing DNS reply: %v", err)
+		logrus.Debugf("handleDefault failed writing DNS reply: %v", err)
 	}
 }
 
