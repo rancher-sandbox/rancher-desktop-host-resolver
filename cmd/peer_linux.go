@@ -16,11 +16,12 @@ package cmd
 import (
 	"context"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/vmsock"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"golang.org/x/sync/errgroup"
 )
 
 const defaultPort = 53
@@ -43,11 +44,13 @@ AF_VSOCK connections from inside of the WSL VM. It is also a stub DNS forwarder 
 | vsock-host | <----- AF_VSOCK -----> [ VM ] <----- AF_VSOCK -----> | vsock-peer   |
  ----------------------------------------------------------------------------------`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			// We will always listen for handshake connections from the host (server) in case of restarts
 			go vmsock.PeerHandshake()
 
 			addr := peerViper.GetString("listen-address")
 			tcpPort := peerViper.GetInt("tcp-port")
+
 			udpPort := peerViper.GetInt("udp-port")
 
 			errs, _ := errgroup.WithContext(context.Background())

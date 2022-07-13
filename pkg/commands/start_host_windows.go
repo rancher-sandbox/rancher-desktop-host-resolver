@@ -18,7 +18,7 @@ import (
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 
-	rddns "github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
+	rddns "github.com/lima-vm/lima/pkg/hostagent/dns"
 	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/vmsock"
 )
 

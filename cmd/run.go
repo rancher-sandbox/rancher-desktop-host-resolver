@@ -14,11 +14,12 @@ limitations under the License.
 package cmd
 
 import (
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/commands"
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
+	"github.com/lima-vm/lima/pkg/hostagent/dns"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/commands"
 )
 
 var runViper = viper.New()
@@ -35,6 +36,7 @@ attach to a defined IP and ports with given options. This mode is ideal for test
 with the underlying DNS server. Use this mode for testing, debugging and benchmarks.
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
 			return commands.StartStandAloneServer(&dns.ServerOptions{
 				Address: runViper.GetString("listen-address"),
 				UDPPort: runViper.GetInt("udp-port"),

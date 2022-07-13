@@ -32,13 +32,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/helper"
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/test/testdns"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-
 	"golang.org/x/sys/windows"
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
+
+	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/helper"
+	"github.com/rancher-sandbox/rancher-desktop-host-resolver/test/testdns"
 )
 
 var (

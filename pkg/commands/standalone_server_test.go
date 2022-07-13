@@ -36,8 +36,8 @@ func TestStartEnvVarArgs(t *testing.T) {
 	os.Setenv("TCP-PORT", tport)
 	os.Setenv("UPSTREAM-SERVERS", "[8.8.8.8]")
 	hosts := map[string]string{
-		"host.rd.test":  "192.0.2.111",
-		"host2.rd.test": "192.0.2.222",
+		"host.rd.test.":  "192.0.2.111",
+		"host2.rd.test.": "192.0.2.222",
 	}
 	// we need to serialize built-in-hosts otherwise
 	// viper is unable to read on the receiving end
@@ -121,7 +121,7 @@ func TestQueryStaticHosts(t *testing.T) {
 		"-a", "127.0.0.1",
 		"-t", tport,
 		"-u", uport,
-		"-c", "host.rd.test=111.111.111.111,host2.rd.test=222.222.222.222"})
+		"-c", "host.rd.test.=111.111.111.111,host2.rd.test.=222.222.222.222"})
 	defer cmd.Process.Kill()
 
 	t.Logf("Checking for TCP port on %s", tport)

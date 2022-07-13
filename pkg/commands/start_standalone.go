@@ -20,7 +20,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
+	"github.com/lima-vm/lima/pkg/hostagent/dns"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -42,7 +42,7 @@ func StartStandAloneServer(options *dns.ServerOptions) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("Started Stand Alone srv %+v", srv)
+	log.Infof("Started standalone srv %+v", srv)
 	defer srv.Shutdown()
 
 	waitForExitSignal()
