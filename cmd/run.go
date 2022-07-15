@@ -36,7 +36,6 @@ attach to a defined IP and ports with given options. This mode is ideal for test
 with the underlying DNS server. Use this mode for testing, debugging and benchmarks.
 		`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.SilenceUsage = true
 			return commands.StartStandAloneServer(&dns.ServerOptions{
 				Address: runViper.GetString("listen-address"),
 				UDPPort: runViper.GetInt("udp-port"),

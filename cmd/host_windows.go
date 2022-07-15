@@ -39,7 +39,6 @@ that runs inside a VM.
 | vsock-host | <----- AF_VSOCK -----> [ VM ] <----- AF_VSOCK -----> | vsock-peer   |
  ----------------------------------------------------------------------------------`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.SilenceUsage = true
 			ipv6 := hostViper.GetBool("ipv6")
 			upstreamServers := hostViper.GetStringSlice("upstream-servers")
 			hosts := hostViper.GetStringMapString("built-in-hosts")
