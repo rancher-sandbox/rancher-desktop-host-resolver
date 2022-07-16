@@ -36,6 +36,7 @@ var dnshammerCmd = &cobra.Command{
 	Rancher Desktop Host Resovler stub DNS. It can handle specified number of records
 	along with resource records types and interval (backoff)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.SilenceUsage = true
 		n, err := cmd.Flags().GetInt("request-number")
 		if err != nil {
 			return err
