@@ -14,11 +14,12 @@ limitations under the License.
 package cmd
 
 import (
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/commands"
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/dns"
+	"github.com/lima-vm/lima/pkg/hostagent/dns"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/commands"
 )
 
 var runViper = viper.New()

@@ -32,13 +32,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/helper"
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/test/testdns"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-
 	"golang.org/x/sys/windows"
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
+
+	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/helper"
+	"github.com/rancher-sandbox/rancher-desktop-host-resolver/test/testdns"
 )
 
 var (
@@ -368,16 +368,14 @@ func generateCNAMErecords(n int, domain string) map[string][]string {
 func generateTXTrecords(n int, domain string) map[string][]string {
 	records := make(map[string][]string)
 	for i := 1; i <= n; i++ {
-		records[fmt.Sprintf("%s-%d.test.", baseDomain, i)] = generateTXT(rand.Intn(5-1) + 1)
+		records[fmt.Sprintf("%s-%d.test.", baseDomain, i)] = generateTXT()
 	}
 	return records
 }
 
-func generateTXT(n int) (txt []string) {
-	for i := 1; i <= n; i++ {
-		record := randomTxt(rand.Intn(255-1) + 1)
-		txt = append(txt, record)
-	}
+func generateTXT() (txt []string) {
+	record := randomTxt(rand.Intn(255-1) + 1)
+	txt = append(txt, record)
 	return txt
 }
 

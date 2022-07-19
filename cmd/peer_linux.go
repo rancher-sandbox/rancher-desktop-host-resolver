@@ -16,11 +16,12 @@ package cmd
 import (
 	"context"
 
-	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/vmsock"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/rancher-sandbox/rancher-desktop-host-resolver/pkg/vmsock"
 )
 
 const defaultPort = 53
