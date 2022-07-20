@@ -359,7 +359,7 @@ func generateCNAMErecords(n int, domain string) map[string][]string {
 	records := make(map[string][]string)
 	for i := 1; i <= n; i++ {
 		subDomain := strings.ToLower(randomTxt(rand.Intn(10-1) + 1))
-		domain := fmt.Sprintf("%s-%d.test.", baseDomain, i)
+		domain := fmt.Sprintf("%s-%d.test.", domain, i)
 		records[subDomain+"."+domain] = []string{domain}
 	}
 	return records
@@ -368,7 +368,7 @@ func generateCNAMErecords(n int, domain string) map[string][]string {
 func generateTXTrecords(n int, domain string) map[string][]string {
 	records := make(map[string][]string)
 	for i := 1; i <= n; i++ {
-		records[fmt.Sprintf("%s-%d.test.", baseDomain, i)] = generateTXT()
+		records[fmt.Sprintf("%s-%d.test.", domain, i)] = generateTXT()
 	}
 	return records
 }
@@ -391,7 +391,7 @@ func randomTxt(n int) string {
 func generateArecords(n int, domain string) map[string][]string {
 	records := make(map[string][]string)
 	for i := 1; i <= n; i++ {
-		records[fmt.Sprintf("%s-%d.test.", baseDomain, i)] = generateIPs(rand.Intn(10-1) + 1)
+		records[fmt.Sprintf("%s-%d.test.", domain, i)] = generateIPs(rand.Intn(10-1) + 1)
 	}
 	return records
 }
