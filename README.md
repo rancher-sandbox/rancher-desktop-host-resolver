@@ -1,5 +1,5 @@
 # Host Resolver
-A stub DNS resolver that runs on the host machine on Linux, macOS, and Windows. The main goal behind this stub resolver is more robust handling of domain name resolutions when using a VPN split tunnel is setup.
+A stub DNS resolver that runs on the host machine on Linux, macOS, and Windows. The main goal behind this stub resolver is more robust handling of domain name resolutions while using a split tunnel VPN setup.
 
 ## How Does It Work In Rancher-Desktop?
 
@@ -53,6 +53,8 @@ You can run the tests in the container by running:
 ```bash
 docker build -t host-resolver:latest . && docker run --dns 127.0.0.1 -it host-resolver:latest
 ```
+**Note:** Run with `--dns` flag is required to override the DNS resolver used in the container.
+
 ## E2E Test
 
 You can run the e2e tests locally on a windows machine, please note that the e2e tests need to run
@@ -65,6 +67,3 @@ NOTE: the e2e test updates the DNS addresses on the machine's **primary** interf
 The determination process assumes the addresses are dynamically configured through DHCP, this is to prevent
 any changes to other interfaces e.g. VirtualBox Host-Only Network, vEthernet (WSL). Once the test is terminated
 the interfaces and DNS changes are restored to the original state.
-
-**Note:** Run with `--dns` flag is required to override the DNS resolver used in the container.
-
