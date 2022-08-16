@@ -19,6 +19,7 @@ package e2e
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -323,7 +324,11 @@ func restoreSystemDNS(addrs []*winipcfg.IPAdapterAddresses) {
 }
 
 func downloadFile(path, url string) error {
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
