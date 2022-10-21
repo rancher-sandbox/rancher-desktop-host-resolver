@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -44,9 +45,13 @@ import (
 
 var (
 	// for now we use this maybe this can be an env var from test
-	wslDistroName         = "host-resolver-e2e-test"
-	wslTarballName        = "distro-0.21.tar"
-	wslTarballURL         = "https://github.com/rancher-sandbox/rancher-desktop-wsl-distro/releases/download/v0.21/distro-0.21.tar"
+	wslDistroName  = "host-resolver-e2e-test"
+	tarbalVersion  = "0.27"
+	wslTarballName = fmt.Sprintf("distro-%s.tar", tarbalVersion)
+	wslTarballURL  = fmt.Sprintf(
+		"https://github.com/rancher-sandbox/rancher-desktop-wsl-distro/releases/download/v%s/%s",
+		tarbalVersion,
+		wslTarballName)
 	testSrvAddr           = "127.0.0.1"
 	dnsPort               = "53"
 	dnsHammerArecords     = "testA.csv"
@@ -101,10 +106,12 @@ func TestLookupCNAMERecords(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-	tmpDir = os.TempDir()
+	var err error
+	tmpDir, err = os.MkdirTemp("", baseDomain)
+	requireNoErrorf(err, "Failed to create a temp directory")
 
 	logrus.Info("Building host-resolver host binary")
-	err := buildBinaries("../../...", "windows", tmpDir)
+	err = buildBinaries("../../...", "windows", tmpDir)
 	requireNoErrorf(err, "Failed building host-resolver.exe: %v", err)
 
 	logrus.Info("Building host-resolver peer binary")
@@ -130,20 +137,27 @@ func TestMain(m *testing.M) {
 	err = writeDNSHammerFile(filepath.Join(tmpDir, dnsHammerCNAMERecords), cnameRecords)
 	requireNoErrorf(err, "Failed generating CNAME test data")
 
-	logrus.Infof("Dowloading %v wsl distro tarball", wslTarballName)
-	tarballPath := filepath.Join(tmpDir, wslTarballName)
-
-	err = downloadFile(tarballPath, wslTarballURL)
-	requireNoErrorf(err, "Failed to download wsl distro tarball: %v", err)
+	tarballPath := filepath.Join(os.TempDir(), wslTarballName)
+	_, err = os.Stat(tarballPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			err = downloadFile(tarballPath, wslTarballURL)
+			requireNoErrorf(err, "Failed to download wsl distro tarball %v", wslTarballName)
+		}
+		requireNoErrorf(err, "Failed to retrieve file info for %v", tarballPath)
+	}
 
 	logrus.Infof("Creating %v wsl distro", wslDistroName)
+	// wsl --import <Distro> <InstallLocation> <FileName> --version 2
 	installCmd := cmdExec(
 		tmpDir,
 		"wsl",
 		"--import",
 		wslDistroName,
 		".",
-		tarballPath)
+		tarballPath,
+		"--version",
+		"2")
 	err = installCmd.Run()
 	requireNoErrorf(err, "Failed to install distro %v", err)
 
