@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/Microsoft/go-winio v0.5.2
-	github.com/lima-vm/lima v0.14.3-0.20230110213839-45ca822ae0b3
+	github.com/lima-vm/lima v0.14.3-0.20230111232138-f26b412f08c3
 	github.com/linuxkit/virtsock v0.0.0-20220523201153-1a23e78aa7a2
 	github.com/miekg/dns v1.1.50
 	github.com/rancher-sandbox/rancher-desktop/src/go/wsl-helper v0.0.0-20220712232929-bac01a348036
